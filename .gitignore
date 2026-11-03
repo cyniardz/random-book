@@ -1,0 +1,7 @@
+.vercel
+.playwright-mcp
+backup-*
+graphify-out
+*.egg
+.DS_Store
+Thumbs.db

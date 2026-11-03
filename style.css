@@ -1,0 +1,809 @@
+/* =========================================================
+   Random Book
+   신문지 느낌: 종이 노이즈, 인쇄된 듯한 글자, 겹친 종이 레이어
+   ========================================================= */
+:root{
+  --taupe:#1C1C1C;          /* 맨 뒤 배경 (노이즈는 body::before/after로 덮음) */
+  --main:#CFC4AE;           /* 메인 레이어 종이 (책 아래 아이보리를 살짝 어둡게) */
+  --after-paper:#110E0B;    /* 레이어가 끝난 뒤 배경: 바탕(--taupe)보다 한층 더 진한 갈색 (같은 종이 질감) */
+  --orange:#8C3B1F;         /* 크레딧 메모지 */
+  --wrap:#9D8036;           /* 포장 이야기 레이어 (메모지와 겹치지 않게 겨자색) */
+  --pink:#A8604F;           /* 사전 예약 레이어 */
+  --pink-block:#94422A;
+  --board:#55534F;          /* 헌책 매입·기부 판지 (한층 진한 회색) */
+  --ink:#221C16;
+  --ink-soft:#5E5245;
+  --light:#F1ECE2;
+  --split:#7B4137;          /* 테마 색 (JS가 바꿈) */
+  --panel:#8F584B;
+
+  --f-press:"Anton","Bebas Neue",Impact,"Arial Narrow",sans-serif;
+  --f-text:"Noto Serif KR","Nanum Myeongjo","Batang",Georgia,serif;
+
+  --nav-h:76px;
+  --tab-h:40px;
+  --sw:min(1120px, 74vw);   /* 레이어 종이 너비, 모든 레이어 동일 */
+  --vh:700px;               /* 레이어 안에서 보이는 높이 (JS가 설정) */
+  --ease:cubic-bezier(.7,0,.2,1);
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--taupe);color:var(--ink);font-family:var(--f-text);-webkit-font-smoothing:antialiased;
+  word-break:keep-all;overflow-wrap:break-word}   /* 한국어는 낱말 중간에서 줄이 끊기지 않게 (사이트 전체) */
+/* 배경 질감: 푸터 앞 진한 갈색 배경과 똑같이 (고운 입자 + 가로 결 + 흰 잡티), 화면에 고정, 모든 내용 뒤 */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.3;mix-blend-mode:multiply;background-image:var(--grain1)}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.16;mix-blend-mode:screen;background-image:var(--grain2)}
+body.view-hero::before{opacity:.18} body.view-hero::after{opacity:.09}   /* 첫 화면은 레이어 바탕과 같되 노이즈만 약하게 */
+:root{--grain1:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .25  0 0 0 0 .19  0 0 0 .1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.012 .9' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .3  0 0 0 0 .24  0 0 0 .28 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>");
+  --grain2:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='9'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -9 3.9'/></filter><rect width='100%' height='100%' filter='url(%23s)'/></svg>")}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--light);outline-offset:3px}
+body.view-hero{overflow:hidden;height:100%}
+body.view-hero .stage, body.view-hero .visit, body.view-hero .after-gap, body.view-hero .to-top, body.view-hero .fly{display:none}
+body.view-layers .hero{display:none}
+
+/* ---------- 신문지 노이즈 ---------- */
+.sc-credit .clip-card::after{z-index:2}   /* 크레딧 메모지의 흰 잡티는 집게(z-index 3) 아래로 */
+.grain{display:none}   /* 화면에 고정된 노이즈는 끔 → 각 종이에 따로 붙인 질감으로 대신 (스크롤하면 종이와 함께 움직임) */
+/* 인트로·메뉴 화면: 예전 전체 노이즈와 같은 고운 신문지 입자를 화면 위에 따로 덮음 */
+.menu::after{content:"";position:absolute;inset:0;z-index:10;pointer-events:none;opacity:.14;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .25  0 0 0 0 .19  0 0 0 .22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+
+.skip{position:absolute;right:max(28px,env(safe-area-inset-right,0px));bottom:max(24px,env(safe-area-inset-bottom,0px));font-size:13px;color:var(--ink-soft);padding:8px}
+
+/* ---------- 네비게이션 ---------- */
+.nav{position:fixed;inset:0 0 auto;z-index:100;height:var(--nav-h);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+  padding:0 max(32px,env(safe-area-inset-right,0px)) 0 max(32px,env(safe-area-inset-left,0px));color:var(--light)}
+.burger{width:40px;height:40px;display:grid;place-content:center;gap:6px}
+.burger i{display:block;width:26px;height:2px;background:currentColor}
+.logo{font-family:var(--f-press);font-size:24px;letter-spacing:.06em;text-transform:uppercase}
+.reserve{justify-self:end;border:1.5px solid currentColor;padding:8px 16px;font-size:13px;letter-spacing:.02em}
+
+/* 메뉴: 배경과 같은 진한 갈색 종이 + 질감, 왼쪽 위에 큰 대문자 목록, 오른쪽 위 동그란 닫기
+   한 항목에 올리면 나머지가 흐려짐 */
+.menu{position:fixed;inset:0;z-index:150;background:var(--taupe);color:var(--light);display:block;
+  padding:clamp(48px,7vh,72px) clamp(28px,3.2vw,60px);
+  clip-path:inset(0 0 100% 0);transition:clip-path .7s var(--ease)}
+.menu.open{clip-path:inset(0 0 0 0)}
+.menu::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.16;mix-blend-mode:screen;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='9'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -9 3.9'/></filter><rect width='100%' height='100%' filter='url(%23s)'/></svg>")}
+.menu ul{position:relative;z-index:1;list-style:none;margin:0;padding:0;display:grid;justify-items:start;gap:0}
+.menu li button{font-family:var(--f-press);font-weight:400;text-transform:uppercase;letter-spacing:.005em;
+  font-size:clamp(48px,6.2vw,92px);line-height:1.12;transition:opacity .3s var(--ease)}
+.menu ul:hover li button,.menu ul:focus-within li button{opacity:.22}
+.menu ul li button:hover,.menu ul li button:focus-visible{opacity:1}
+/* 닫기: 오른쪽 위 동그란 버튼, 배경과 같은 색에 그림자로 살짝 떠 보이게 */
+.menu-x{position:absolute;z-index:2;top:clamp(36px,6vh,56px);right:clamp(28px,3.2vw,60px);width:clamp(64px,4.6vw,88px);aspect-ratio:1;border-radius:50%;
+  background:var(--taupe);display:grid;place-items:center;
+  box-shadow:0 14px 30px -10px rgba(0,0,0,.75),0 3px 8px -2px rgba(0,0,0,.5);transition:translate .3s var(--ease)}
+.menu-x:hover{translate:0 -2px}
+.menu-x svg{width:34%;height:34%}
+.menu-x path{stroke-width:1.6}
+
+/* ---------- 히어로 ---------- */
+.hero{position:fixed;inset:var(--nav-h) 0 0;display:grid;place-items:center;padding-bottom:28px}
+
+.panel{position:relative;flex:1 1 0;transition:flex-grow .35s var(--ease);min-width:0}
+
+.panel .fill{position:absolute;inset:0 -60px 0 -60px;background:var(--pc);
+  background-image:linear-gradient(180deg,rgba(255,255,255,.07),rgba(0,0,0,.09))}
+.panel .book{position:absolute;height:50cqh;aspect-ratio:737/1176;left:calc(60px + (100% - 120px) * .72);top:54%;translate:-50% -50%;rotate:25deg;
+  transition:scale .35s var(--ease),left .35s var(--ease);
+  filter:drop-shadow(1.1cqw 1.6cqw 1.4cqw rgba(30,20,10,.38)) drop-shadow(.25cqw .4cqw .3cqw rgba(30,20,10,.28))}
+.panel.on .book{scale:1.05;left:calc(60px + (100% - 120px) * .5)}   /* 마우스를 올린 판: 넓어진 판의 가로 가운데로 */
+.panel .book img{display:block;width:100%;height:100%}
+.panel .hit{position:absolute;inset:0;z-index:2}
+
+/* ---------- 책 한 권 무대 (시험 중: js의 SINGLE_HERO) ----------
+   --bh 책 높이: 화면 비율로 키우되 최대 640px (원본 1176px → 고해상도 화면에서도 깨지지 않는 선)
+   --cut 색/띠지 경계: 책 중심(54%) - 책 높이 × 0.029 = 노끈 높이 */
+
+.expand{position:fixed;inset:0;z-index:90;pointer-events:none;visibility:hidden;background:var(--panel)}
+
+/* ---------- 레이어 화면 ---------- */
+.stage{position:relative;overflow:hidden;overflow:clip}
+.stack{position:absolute;inset:0}
+.sheet{position:absolute;left:50%;top:0;width:var(--sw);margin-left:calc(var(--sw) / -2);
+  transition:left .6s var(--ease), top .6s var(--ease), box-shadow .6s;will-change:transform;
+  box-shadow:0 -6px 24px -10px rgba(20,12,4,.35),0 30px 60px -20px rgba(20,12,4,.45)}
+.sheet.front{box-shadow:0 -10px 36px -12px rgba(20,12,4,.45),0 40px 80px -24px rgba(20,12,4,.55)}
+.sheet.front{cursor:auto}   /* 뒤 레이어 커서는 JS가 레이어 색 화살표로 */
+.sheet:not(.front) .frame{pointer-events:none}
+
+/* 종이 질감: 각 종이(레이어, 크레딧 메모지, 판, 레이어 끝의 선과 배경)에 따로 붙어 있어서 종이와 함께 움직임
+   아래 겹 = 고운 신문지 입자(예전 화면 전체 노이즈를 여기로 옮김) + 가로 결, 위 겹 = 글자까지 덮는 흰 잡티 */
+.sheet::before,.nav-dot::before,.ag-bar::before,.panel .fill::before,.clip-card::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.3;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .25  0 0 0 0 .19  0 0 0 .1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.012 .9' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .3  0 0 0 0 .24  0 0 0 .28 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>")}
+.frame::after,.ag-bar::after,.clip-card::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:5;opacity:.16;mix-blend-mode:screen;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='9'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -9 3.9'/></filter><rect width='100%' height='100%' filter='url(%23s)'/></svg>")}
+
+.tab{position:relative;z-index:6;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;width:100%;height:var(--tab-h);
+  padding:0 18px;border-bottom:1px solid currentColor;font-size:13px;font-weight:600;text-align:left}
+.tab .dots{display:flex;gap:4px;padding-right:14px;border-right:1px solid currentColor;height:100%;align-items:center}
+.tab .dots i{width:9px;height:9px;border-radius:50%;background:currentColor}
+.tab .dots i+i{opacity:.45}
+.tab-r{font-family:var(--f-press);font-weight:400;font-size:15px;letter-spacing:.04em}.frame{position:relative}
+.content{position:relative}
+.pad{padding:56px 64px 96px}
+
+/* 각 레이어 색 */
+.sheet-main{background:linear-gradient(rgba(207,196,174,.85),rgba(207,196,174,.85)),url("assets/main-paper.jpg") 0 0 / 589px auto repeat var(--main);   /* 종이 사진 위에 어두운 아이보리를 85% 덮어 결만 남김 */
+  color:var(--ink)}
+.sheet-main::before{display:none}   /* 종이 사진에 질감이 이미 있으니 만든 입자 겹은 끔 (사진 그대로 보이게) */
+.sheet-orange{background:var(--wrap);color:#2a1408}
+.sheet-pink{background:var(--pink);color:#3a160c}
+.sheet-board{background:var(--board);color:var(--light)}
+
+/* 분홍: 오른쪽에 블록 무늬 + 구멍 (가장자리로 보이는 부분) */
+.sheet-pink .frame::before{content:"";position:absolute;top:0;bottom:0;right:44px;width:30%;z-index:0;opacity:.85;
+  background:var(--bars, none) left top / 100% auto repeat-y}
+.sheet-pink::after{content:"";position:absolute;top:var(--tab-h);bottom:0;right:10px;width:22px;z-index:7;pointer-events:none;
+  background:radial-gradient(circle at 50% 50%,#1d1712 7px,transparent 7.5px);background-size:22px 34px}
+.sheet-pink .pad{position:relative;z-index:1;max-width:62%}
+
+/* 주황: 위쪽 눌린 블록 */
+.sheet-orange .pad{position:relative}
+.sheet-orange .pad::before{content:"";position:absolute;left:24px;right:24px;top:72px;height:120px;opacity:.35;
+  background:repeating-linear-gradient(180deg,rgba(80,25,5,.55) 0 22px,transparent 22px 30px);
+  -webkit-mask-image:repeating-linear-gradient(90deg,#000 0 31%,transparent 31% 34%);mask-image:repeating-linear-gradient(90deg,#000 0 31%,transparent 31% 34%)}
+.sheet-orange .press-l{margin:280px 0 16px;font-size:clamp(83px,calc(11vw + 3px),183px);line-height:1.25;text-align:center}
+.sheet-orange .credit{margin:120px 0 0;gap:6px;justify-content:start}   /* 제목 아래 왼쪽 하단에 */
+/* 크레딧 밑줄: 스크롤로 보이면 왼쪽→오른쪽으로 슥 그어짐 (Designer 먼저, Director 조금 뒤). 한 번 그어지면 그대로 남음 (JS가 .drawn 붙임) */
+.sheet-orange .credit div{position:relative}
+.sheet-orange .credit div::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.5px;background:currentColor;
+  transform:scaleX(0);transform-origin:left center;transition:transform .9s cubic-bezier(.7,0,.2,1)}
+.sheet-orange .credit.drawn div::after{transform:scaleX(1)}
+.sheet-orange .credit.drawn div + div::after{transition-delay:.45s}
+/* 단계 목록 선도 같은 방식: 보이면 위에서부터 차례로 슥 그어지고, 한 번 그어지면 그대로 (JS가 .drawn 붙임) */
+.sheet-orange .steps{border-top:0;position:relative}
+.sheet-orange .steps li{border-bottom:0;position:relative}
+.sheet-orange .steps::before,.sheet-orange .steps li::after{content:"";position:absolute;left:0;right:0;height:1px;background:currentColor;
+  transform:scaleX(0);transform-origin:left center;transition:transform 1s cubic-bezier(.7,0,.2,1)}
+.sheet-orange .steps::before{top:0}
+.sheet-orange .steps li::after{bottom:0}
+.sheet-orange .steps.drawn::before,.sheet-orange .steps.drawn li::after{transform:scaleX(1)}
+.sheet-orange .steps.drawn li:nth-child(1)::after{transition-delay:.25s}
+.sheet-orange .steps.drawn li:nth-child(2)::after{transition-delay:.5s}
+.sheet-orange .steps.drawn li:nth-child(3)::after{transition-delay:.75s}
+.sheet-orange .steps.drawn li:nth-child(4)::after{transition-delay:1s}
+.sheet-orange .steps.drawn li:nth-child(5)::after{transition-delay:1.25s}
+/* 제목+크레딧 묶음: 제목 너비(가장 긴 줄 WRAPPED)만큼만 차지하고 가운데 → 크레딧 시작점 = W 왼쪽 끝 */
+.sheet-orange .wb-head{width:fit-content;margin:0 auto}/* 소개 문단: 화면 한 장을 혼자 차지해서, 보일 때 위 크레딧과 아래 단계가 화면 밖에 있게 */
+.sheet-orange .wrap-copy{min-height:calc(var(--vh) * 1.2);display:flex;flex-direction:column;justify-content:center}
+.sheet.sheet-orange .pad .blk:first-child{margin-bottom:0}
+/* 단계 목록: 화면 한 장을 거의 다 채우게 */
+.sheet-orange .steps{max-width:none;margin:0;display:flex;flex-direction:column}   /* 높이 고정 대신 칸마다 여백: 5칸이어도 답답하지 않게 */
+.sheet-orange .steps li{flex:1;grid-template-columns:clamp(100px,14vw,220px) 1fr;align-items:center;min-height:calc(var(--vh) * .22);padding:clamp(40px,6vh,72px) 0}
+.sheet-orange .steps .n{font-size:clamp(56px,7vw,110px)}
+.sheet-orange .steps h3{font-size:clamp(22px,2.2vw,32px);margin:0 0 18px}
+.sheet-orange .steps p{font-size:clamp(15px,1.3vw,19px);line-height:2.1}
+.sheet-orange .credit div{padding:6px 0;border:0;grid-template-columns:120px auto}
+/* 영월체: 영문·한글 모두 이 글꼴로 (크레딧, 레이어 윗줄) */
+@font-face{font-family:'Yeongwol';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2507-2@1.0/YeongwolTTF-Regular.woff2') format('woff2');
+  font-weight:normal;font-display:swap}
+/* 라벨과 이름 모두 같은 크기·굵기·색 */
+.sheet-orange .credit dt,.sheet-orange .credit dd{font-family:'Yeongwol','NanumMyeongjoYetHangul',serif;font-weight:400;font-size:22px;color:inherit;opacity:1;text-transform:none;letter-spacing:0}
+.sheet-orange .ko-body{margin-bottom:28px;font-size:17px}
+.sheet-orange .en-body{margin-bottom:0;font-size:15px;opacity:1}
+.sheet.sheet-orange .pad .blk{margin-bottom:240px}
+.sheet.sheet-orange .pad .blk:last-child{margin-bottom:120px}
+
+/* ---------- 공통 타이포 ---------- */
+.press-l{font-family:var(--f-press);font-weight:400;text-transform:uppercase;font-size:clamp(56px,7vw,112px);line-height:.9;margin:56px 0 28px;letter-spacing:.005em}
+.press-l.small{font-size:clamp(40px,4vw,64px);margin-top:96px}
+.lead-ko{font-size:17px;font-weight:600;margin:0 0 48px;max-width:30ch;line-height:1.6}
+.ko-body{font-size:15px;line-height:1.95;margin:0 0 16px;max-width:36ch}
+.en-body{font-size:13px;line-height:1.8;margin:0 0 24px;max-width:44ch;opacity:.72}
+.meta{font-size:12px;letter-spacing:.06em;margin:0 0 16px;opacity:.75}
+.price{font-family:var(--f-press);font-size:18px;letter-spacing:.04em;margin:0}
+
+.ink-btn{background:var(--ink);color:var(--light);padding:14px 28px;font-size:14px;font-weight:600}
+.ink-btn.ghost{background:transparent;color:inherit;border:1.5px solid currentColor}
+
+/* ---------- 메인 레이어 장면 ---------- */
+.sc{position:relative}
+.sc-cover{height:calc(var(--vh) * 1.0);display:grid;place-items:center;background:var(--split);transition:background-color .6s}
+.press{margin:0;font-family:var(--f-press);font-weight:400;text-transform:uppercase;text-align:center;line-height:.86;
+  font-size:min(14vw, calc(var(--vh) * .42));color:var(--main);   /* 표지색 바탕 위 아이보리 글자 */
+  -webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -7 0 0 0 5.1'/></filter><rect width='100%' height='100%' filter='url(%23f)'/></svg>");
+  mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -7 0 0 0 5.1'/></filter><rect width='100%' height='100%' filter='url(%23f)'/></svg>");
+  -webkit-mask-size:300px;mask-size:300px}
+.press span{display:block}
+.anchor{position:absolute;aspect-ratio:737/1176;pointer-events:none}
+#aCover{height:calc(var(--vh) * .5);left:50%;top:50%;translate:-50% -50%}
+
+.sc-theme{height:calc(var(--vh) * 1.1);display:grid;grid-template-columns:1.05fr 1fr;align-items:center}
+/* 테마 설명: 칸에 꽉 맞추지 않고 조금 자유롭게 — 제목은 정해 둔 자리에서만 줄바꿈(JS 제목의 \n),
+   한국어 본문은 낱말 단위로 줄바꿈, 문단마다 시작 위치·간격을 살짝 다르게 */
+.theme-text{padding-left:9%;padding-right:4%}
+.theme-text .meta{display:none}   /* 쪽수 표시는 숨김 */
+/* 제목(원래 0)과 본문(원래 11%)이 반반씩 다가가 그 중간(5.5%)에서 같은 시작 위치 */
+.theme-text h2{font-weight:900;font-size:clamp(26px,2.6vw,40px);line-height:1.32;margin:0 0 56px 5.5%;white-space:pre-line;word-break:keep-all}
+.theme-text .ko-body{margin:0 0 38px 5.5%;max-width:30ch;word-break:keep-all}
+.theme-text .en-body{margin:0 0 0 5.5%;max-width:38ch}
+#aTheme{height:calc(var(--vh) * .44);left:75%;top:50%;translate:-50% -50%}
+
+.sc-credit{height:calc(var(--vh) * .8);display:flex;align-items:center;padding-left:0}
+.clip-card{position:relative;background:var(--orange);color:#2a1408;padding:44px 40px 36px;width:min(380px,80%);
+  box-shadow:0 18px 40px -16px rgba(30,15,5,.5)}
+.clip-card p{font-size:14px;line-height:1.8;margin:18px 0 22px}
+.binder{position:absolute;left:-16px;top:40px;width:34px;height:64px;background:#141210;box-shadow:2px 3px 6px rgba(0,0,0,.4)}
+.binder::before{content:"";position:absolute;right:26px;top:10px;width:46px;height:42px;border:3px solid #9c9a95;border-right:0;border-radius:24px 0 0 24px}
+.credit{margin:0;display:grid;gap:10px}
+.credit div{display:grid;grid-template-columns:96px 1fr;align-items:baseline;border-top:1px solid currentColor;padding-top:10px}
+.credit dt{font-family:var(--f-press);font-size:15px;letter-spacing:.05em;text-transform:uppercase}
+.credit dd{margin:0;font-weight:600;font-size:16px}
+.credit dd span{font-weight:400;font-size:13px;opacity:.75;margin-left:6px}
+
+/* 표지 섹션의 표지색이 그대로 이어지다가(--split-h) 경계선에서 아이보리로 */
+.sc-land{height:calc(var(--vh) * 2);--split-h:calc(var(--vh) * .75)}
+.split{position:absolute;left:0;right:0;top:0;height:var(--split-h);background:var(--split);transition:background-color .6s}
+#aLand{height:calc(var(--vh) * .46);left:50%;top:calc(var(--split-h) - var(--vh) * .46 * .471);translate:-50% 0}
+.land-meta{position:absolute;left:0;right:0;top:calc(var(--split-h) + var(--vh) * .33);opacity:0;translate:0 16px;transition:opacity .25s ease-out,translate .3s ease-out;display:flex;flex-direction:column;align-items:center;gap:14px}
+
+/* 날아다니는 책 */
+.fly{position:fixed;left:0;top:0;z-index:45;transition:opacity .3s;aspect-ratio:737/1176;pointer-events:none;will-change:transform,height;transform-origin:50% 47.1%}
+.fly img{display:block;width:100%;height:100%}
+.fly.land{animation:land .5s var(--ease)}
+@keyframes land{0%{scale:1}35%{scale:.988}70%{scale:1.004}100%{scale:1}}
+.fly.snap{animation:land .45s var(--ease)}
+
+/* ---------- 헌책 매입·기부 (회색 판지) ---------- */
+/* 레퍼런스처럼: 촘촘한 산세리프(Inter Tight), 가는 밝은 선으로 나뉜 줄, 오른쪽 끝 번호 */
+.sheet-board{--bd-line:rgba(241,236,226,.6);font-family:"Inter Tight","Noto Sans KR",sans-serif}
+.sheet-board .press-l{font-family:inherit;font-weight:700;text-transform:none;letter-spacing:-.045em;line-height:.95;font-size:clamp(56px,7.4vw,118px);margin:72px 0 28px}
+.sheet-board .press-l.small{font-size:clamp(40px,4.6vw,72px);margin-top:0}
+.sheet-board .lead-ko{font-weight:600;font-size:clamp(17px,1.5vw,22px);letter-spacing:-.02em;line-height:1.45;max-width:none}
+.sheet-board .qa{counter-reset:qa;max-width:none;border-top:1px solid var(--bd-line)}
+.sheet-board .qa li{counter-increment:qa;position:relative;padding:26px 72px 34px 0;border-bottom:1px solid var(--bd-line)}
+.sheet-board .qa li::after{content:counter(qa);position:absolute;right:0;top:22px;font-weight:600;font-size:clamp(26px,2.6vw,40px);letter-spacing:-.03em;line-height:1}
+.sheet-board .qa h3{font-weight:600;font-size:clamp(26px,2.6vw,40px);letter-spacing:-.035em;line-height:1.05;margin:0 0 12px}
+/* 큰 제목과 목록 제목은 WRAPPED BY HAND와 같은 Anton (한글은 Anton에 없어서 굵은 Noto Sans KR로)
+   font-synthesis:none → Anton은 굵기가 하나뿐이라 가짜 굵게 처리되지 않게 */
+.sheet-board .press-l,.sheet-board .qa h3,.sheet-board .qa li::after{font-family:"Anton","Noto Sans KR",sans-serif;font-weight:700;font-synthesis:none;letter-spacing:.005em}
+.sheet-board .press-l{text-transform:uppercase;line-height:.9}
+.sheet-board .qa p{font-weight:600;font-size:13px;line-height:1.6;letter-spacing:-.01em;max-width:62ch;opacity:.85}
+/* 간격은 머스타드 레이어와 같은 리듬:
+   큰 제목(위 여백 넉넉, 가운데, 줄간격 1.25) → 안내 문장이 화면 한 장을 혼자 차지 → 목록이 화면 90%를 4칸으로 나눠 채움 → 블록 사이 240px */
+.sheet-board .press-l{margin:220px 0 0;font-size:clamp(83px,calc(11vw + 3px),183px);line-height:1.25;text-align:center}
+.sheet-board .bd-copy{min-height:calc(var(--vh) * 1.2);display:flex;flex-direction:column;justify-content:center}
+.sheet-board .bd-copy .lead-ko{font-weight:500;font-size:17px;line-height:1.95;letter-spacing:0;max-width:36ch;margin:0}
+.sheet.sheet-board .pad .blk{margin-bottom:240px}
+.sheet.sheet-board .pad .blk:first-child,.sheet.sheet-board .pad .spines + .blk{margin-bottom:0}
+.sheet.sheet-board .pad .blk:last-child{margin-bottom:120px}
+.sheet-board .qa{display:flex;flex-direction:column}   /* 겨자색 레이어와 같은 간격 */
+.sheet-board .qa li{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:calc(var(--vh) * .22);padding:clamp(40px,6vh,72px) clamp(100px,14vw,220px) clamp(40px,6vh,72px) 0}
+.sheet-board .qa li::after{top:50%;translate:0 -50%;font-size:clamp(56px,7vw,110px)}
+.sheet-board .qa h3{font-size:clamp(26px,2.6vw,40px);margin:0 0 18px}
+.sheet-board .qa p{font-weight:500;font-size:clamp(15px,1.3vw,19px);line-height:2.1;opacity:1}
+.sheet-board .press-l.small{font-size:clamp(56px,7vw,110px);line-height:1.1;text-align:left;margin:0 0 28px}
+.sheet-board .rules{max-width:none;border-top:1px solid var(--bd-line)}
+.sheet-board .rules div{grid-template-columns:200px 1fr;padding:18px 0;border-bottom:1px solid var(--bd-line);font-weight:600;font-size:clamp(15px,1.3vw,19px);letter-spacing:-.02em}
+/* 책등 띠: 레이어 너비 꽉 차게, 아래에 가는 선. 세트 두 벌을 이어 붙이고 절반만큼 흘려서 끊김 없이 반복 */
+.spines{margin:-72px -64px 0;height:clamp(150px,16vw,230px);overflow:hidden;border-bottom:1px solid var(--bd-line);padding-top:22px}
+.spines-track{display:flex;align-items:flex-end;height:100%;width:max-content;animation:spinesRun 48s linear infinite}
+.spines-track i{display:block;flex:none;margin-right:10px;background:rgba(241,236,226,.42);transform-origin:50% 100%}   /* 간격은 margin으로: 두 세트 길이가 정확히 같아야 이음새가 안 보임 */
+@keyframes spinesRun{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.spines-track{animation:none}}
+@media (max-width:820px){.spines{margin:-72px -22px 0}.sheet-board .rules div{grid-template-columns:110px 1fr}}
+.qa{list-style:none;margin:0;padding:0;border-top:1px solid currentColor;max-width:640px}
+.qa li{border-bottom:1px solid currentColor;padding:26px 0}
+.qa h3{margin:0 0 10px;font-size:19px;font-weight:600}
+.qa p{margin:0;font-size:14px;line-height:1.85;opacity:.88}
+.rules{margin:0;max-width:640px;border-top:1px solid currentColor}
+.rules div{display:grid;grid-template-columns:140px 1fr;padding:16px 0;border-bottom:1px solid currentColor;font-size:15px}
+.rules dt{font-weight:600}.rules dd{margin:0}
+
+/* ---------- 예약 ---------- */
+.rsv fieldset{border:0;margin:0 0 40px;padding:0}
+.rsv legend{font-family:var(--f-press);font-size:20px;letter-spacing:.04em;text-transform:uppercase;padding:0;margin-bottom:14px;border-bottom:1px solid currentColor;width:100%}
+.dates{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.dates button,.slots button{border:1.5px solid currentColor;padding:14px 10px;text-align:left;display:grid;gap:4px}
+.dates b{font-family:var(--f-press);font-weight:400;font-size:28px;letter-spacing:.02em}
+.dates small,.slots small{font-size:12px;opacity:.8}
+.dates button[aria-pressed="true"],.slots button[aria-pressed="true"]{background:#3a160c;color:var(--pink)}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.slots button{padding:10px}
+.slots b{font-family:var(--f-press);font-weight:400;font-size:20px}
+.slots .full small{font-weight:600}
+.slot-note{font-size:13px;margin:12px 0 0;opacity:.85}
+.fields{display:grid;grid-template-columns:110px 1fr;gap:12px 16px;align-items:center}
+.fields legend{grid-column:1/-1}
+.fields label{font-size:14px;font-weight:600}
+.fields input[type=text],.fields input[type=tel],.fields select{font:inherit;font-size:15px;background:transparent;border:0;border-bottom:1.5px solid currentColor;padding:8px 2px;color:inherit;border-radius:0}
+.fields .agree{grid-column:1/-1;font-weight:400;font-size:13px;display:flex;gap:8px;align-items:center}
+.err{min-height:1.4em;font-size:13px;font-weight:600;margin:0 0 12px}
+.done{border:1.5px solid currentColor;padding:28px;margin-bottom:40px}
+.done-k{font-weight:600;margin:0 0 6px}
+.done-no{font-family:var(--f-press);font-size:34px;letter-spacing:.03em;margin:0 0 18px}
+.done dl{display:grid;grid-template-columns:90px 1fr;gap:8px 12px;margin:0 0 22px;font-size:14px}
+.done dd{margin:0}
+.notice{margin-top:64px;border-top:1px solid currentColor;padding-top:20px;max-width:46ch}
+.notice h3{margin:0 0 12px;font-size:16px}
+.notice p{font-size:13.5px;line-height:1.8;margin:0 0 8px}
+.notice .demo{opacity:.7;margin-top:18px}
+
+/* ---------- 포장 이야기 ---------- */
+.steps{list-style:none;margin:56px 0 0;padding:0;border-top:1px solid currentColor;max-width:640px}
+.steps li{display:grid;grid-template-columns:80px 1fr;padding:22px 0;border-bottom:1px solid currentColor}
+.steps .n{font-family:var(--f-press);font-size:40px;line-height:1}
+.steps h3{margin:4px 0 8px;font-size:18px}
+.steps p{margin:0;font-size:14px;line-height:1.8}
+
+.note{margin:72px 0 0;padding:0}
+.note p{font-size:clamp(20px,1.8vw,28px);font-weight:900;line-height:1.5;margin:0 0 8px;max-width:20ch}
+.note .en{font-size:14px;font-weight:400;opacity:.75}
+
+/* ---------- 방문 안내 ---------- */
+.visit{position:relative;padding:140px 0 0}
+.visit-sheet{position:relative;width:var(--sw);margin:0 auto;color:var(--light)}
+/* 입장권: 진한 갈색 위에 아이보리 종이 한 장 (메인 레이어와 같은 종이), 가운데 점선 절취선 + 양옆 반달 홈 */
+.ticket{--tp:clamp(28px,4.5vw,64px);background:var(--main);color:var(--ink);padding:var(--tp);
+  box-shadow:0 40px 80px -30px rgba(0,0,0,.7),0 8px 18px -8px rgba(0,0,0,.45)}
+.ticket > *{position:relative}   /* 종이 결(::before)보다 내용이 위 */
+.ticket .tk-top{display:flex;justify-content:space-between;align-items:baseline;gap:24px;border-bottom:1px solid currentColor;padding-bottom:18px}
+.ticket .tk-top .press-l{margin:0}
+.tk-when{margin:0;font-family:var(--f-press);font-size:clamp(18px,1.8vw,26px);letter-spacing:.04em}
+.tk-cut{height:0;margin:56px calc(var(--tp) * -1) 0;border-top:2px dashed rgba(34,28,22,.35)}
+/* 점 두 개: VISIT 아래 선의 양 끝에 붙어 있음 */
+.tk-top::before,.tk-top::after{content:"";position:absolute;bottom:-14.5px;width:28px;height:28px;border-radius:50%;background:var(--after-paper)}
+.tk-top::before{left:-14px}.tk-top::after{right:-14px}
+.ticket .visit-info{margin-top:44px}
+.visit > .giant{width:var(--sw);margin:96px auto 0}
+.visit-sheet.ticket::before{display:block}   /* 입장권 종이 결 켜기 */
+.visit-sheet::before{display:none;content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.012 .9' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .3  0 0 0 0 .3  0 0 0 .3 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>")}
+.tab.static{cursor:default}
+.sheet.front .tab{cursor:default}   /* 앞 레이어 윗부분은 눌러도 아무 일 없음 */
+.sheet:not(.front) .tab,.sheet:not(.front) .tab *{cursor:inherit}   /* 뒤 레이어는 윗부분도 레이어 색 화살표 */
+/* 메인이 맨 앞일 때 윗부분은 눌러도 아무 일 없음 → 손가락 커서 안 보이게 */
+/* 메모 카드로 여는 방문 안내 입장권: 어두운 바탕 위로 아래에서 올라옴, 길면 안에서 스크롤 */
+.ticket-pop{position:fixed;inset:0;z-index:120;background:rgba(17,14,11,0);transition:background .45s ease}
+.ticket-pop.on{background:rgba(17,14,11,.86)}
+.ticket-pop[hidden]{display:none}
+.tp-scroll{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;outline:0;padding:calc(var(--nav-h) + 24px) 0 80px}
+.ticket-pop .ticket{opacity:0;translate:0 60px;transition:opacity .4s ease,translate .5s var(--ease)}
+.ticket-pop.on .ticket{opacity:1;translate:0 0}
+.ticket-pop .pad{padding:0}   /* 푸터 위 입장권과 같은 배치 */
+.ticket-pop .tk-top::before,.ticket-pop .tk-top::after{background:#1a1612}   /* 선 끝 점: 어두운 바탕 색 */
+/* 팝업 입장권: 메모 카드(VISIT)와 같은 종이 색·질감, 한 화면에 다 보이도록 화면 높이에 맞춰 너비를 줄임 */
+.ticket-pop .ticket{background:#E8E0CF;color:#1d1712;width:min(var(--sw),calc((100vh - var(--nav-h) - 56px) * var(--tk-ar,1.25)));--tp:clamp(24px,2.6vw,44px)}
+.ticket-pop .ticket::before{opacity:.75;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .26  0 0 0 0 .2  0 0 0 1.1 -.15'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+.ticket-pop .tp-scroll{padding:calc(var(--nav-h) + 8px) 0 32px}
+.ticket-pop .press-l{font-size:clamp(48px,6vw,88px)}
+.ticket-pop .visit-grid{gap:24px;margin-top:18px}
+.ticket-pop .tk-cut{margin-top:28px}
+.ticket-pop .visit-info{margin-top:24px;gap:24px}
+.ticket-pop .visit-info div{padding:8px 0;font-size:13px}
+/* 스크롤바는 안 보이게(페이지 스크롤바와 2개가 겹쳐 보이지 않게), 휠·키보드·터치로는 그대로 스크롤 */
+.tp-scroll{scrollbar-width:none}
+.tp-scroll::-webkit-scrollbar{display:none}
+.tp-x{position:absolute;top:calc(var(--nav-h) - 8px);right:max(24px,calc((100% - var(--sw)) / 2 - 64px));width:48px;height:48px;border-radius:50%;
+  display:grid;place-items:center;background:var(--main);color:var(--ink);box-shadow:0 6px 18px rgba(0,0,0,.35);
+  opacity:0;transition:opacity .4s ease}
+.ticket-pop.on .tp-x{opacity:1}
+.tp-x svg{width:20px;height:20px}
+.visit-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:24px}
+.visit-grid figure{margin:0}
+.visit-grid svg{display:block;width:100%;height:auto}
+.visit-grid figcaption{font-size:13px;margin-top:12px;opacity:.85}
+.visit-info{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:56px}
+.visit-info dl{margin:0;border-top:1px solid currentColor}
+.visit-info div{display:grid;grid-template-columns:80px 1fr;gap:12px;padding:13px 0;border-bottom:1px solid currentColor;font-size:14px;line-height:1.6}
+.visit-info dt{font-weight:600}.visit-info dd{margin:0}
+.giant{font-family:var(--f-press);text-transform:uppercase;font-size:min(17vw,230px);line-height:.82;margin:96px 0 0;color:var(--light);opacity:.9}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 24px;width:var(--sw);margin:0 auto;padding:36px 0 40px;font-size:12px;color:var(--light);opacity:.85}
+.foot span:first-child{font-family:var(--f-press);letter-spacing:.06em;text-transform:uppercase}
+.foot-end{display:inline-flex;align-items:center;gap:14px}
+.foot-ig{display:block;width:22px;height:22px}
+.foot-ig svg{display:block;width:100%;height:100%;fill:var(--light)}
+.foot-ig:hover svg{translate:0 -2px}   /* 맨 위로 버튼과 같은 반응 */
+@media (max-width:820px){.foot{padding-bottom:140px}}   /* 휴대폰: 오른쪽 아래 떠 있는 버튼(?, 맨 위로)이 인스타 아이콘·푸터 글자를 가리지 않게 */
+
+/* 맨 위로 픽셀 그림 */
+.to-top{position:fixed;right:max(28px,env(safe-area-inset-right,0px));bottom:max(24px,env(safe-area-inset-bottom,0px));z-index:110;width:44px;height:44px}
+.to-top svg{width:100%;height:100%;fill:var(--light);image-rendering:pixelated}
+.to-top:hover svg{translate:0 -3px}
+
+/* ---------- 좁은 화면 ---------- */
+@media (max-width:820px){
+  :root{--nav-h:60px;--sw:calc(100vw - 48px)}
+  .nav{padding:0 16px}
+  .logo{font-size:19px}.reserve{padding:6px 10px;font-size:12px}
+
+  .panel .fill{inset:0 0 -40px 0}
+  .panel .book{height:22cqh;left:70%}
+  .pad{padding:32px 22px 72px}
+  .sheet-pink .pad{max-width:100%}
+  .sheet-pink .frame::before{display:none}
+  .sheet-pink .pad{display:block!important;padding:24px 56px 72px 22px!important}.pk-top,.pk-left{display:none}
+  .sc-theme{grid-template-columns:1fr;align-items:start;padding-top:24px}
+  .theme-text{padding:0 22px}
+  #aTheme{left:50%;top:auto;bottom:4%;translate:-50% 0;height:calc(var(--vh) * .34)}
+  .sc-credit{padding:0 22px}
+  .visit-grid,.visit-info{grid-template-columns:1fr}
+  .dates,.slots{grid-template-columns:1fr 1fr}
+  .fields{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition:none!important;animation:none!important}
+}
+
+/* 방문 안내는 카드 없이 배경 위에 */
+.visit .pad{padding:0}
+
+/* 뒤 레이어 시차: 스크롤 위치에 직접 연결 (0 ~ 메인 끝 지점까지 --lag 만큼 아래로 밀림) */
+@keyframes layerLag{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,var(--lag,0px),0)}}
+.scroll-tl body.view-layers .sheet{animation:layerLag linear both;animation-timeline:scroll(root);animation-range:0px var(--end,1px)}
+
+/* 모든 레이어 길이 = 화면 높이 x 6 (1080 기준 6,480px). 뒤 레이어는 묶음 사이 간격을 넓혀 고르게 배치 */
+.sheet .frame{min-height:calc(var(--vh) * 6 - var(--tab-h))}
+.sheet:not(.sheet-main) .pad{min-height:calc(var(--vh) * 6 - var(--tab-h));display:flex;flex-direction:column;justify-content:space-between;padding-top:96px;padding-bottom:calc(var(--vh) * .5)}
+.sheet:not(.sheet-main) .blk{margin:0}
+
+.land-meta.show{opacity:1;translate:0 0}
+.land-meta .price{font-size:26px;position:relative;padding-bottom:8px}
+/* 가격 밑줄: 가격이 뜰 때 왼쪽에서 오른쪽으로 그어짐 */
+.land-meta .price::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.5px;background:currentColor;
+  transform:scaleX(0);transform-origin:left;transition:transform .25s ease}
+.land-meta.show .price::after{transform:scaleX(1);transition:transform .4s ease-out .1s}
+
+/* 크레딧 메모지: 메인 레이어 왼쪽 가장자리에 걸쳐 집게로 집힌 모양 */
+.sc-credit .clip-card{margin-left:-150px;box-shadow:6px 14px 24px -8px rgba(30,15,5,.45)}
+.sc-credit .clip-card .binder{left:133px;top:-22px;width:34px;height:58px;background:linear-gradient(90deg,#0d0c0b,#2b2825 50%,#0d0c0b);border-radius:2px 2px 4px 4px;box-shadow:2px 4px 6px rgba(0,0,0,.45)}
+.sc-credit .clip-card .binder::before{right:auto;left:50%;top:-30px;width:24px;height:34px;margin-left:-12px;border:3px solid #a6a39d;border-bottom:0;border-radius:12px 12px 0 0}
+.sc-credit .clip-card .binder::after{content:"";position:absolute;left:50%;top:-24px;width:14px;height:28px;margin-left:-7px;border:3px solid #8e8b85;border-bottom:0;border-radius:8px 8px 0 0}
+.sc-credit .clip-card{padding-left:190px}
+@media (max-width:820px){.sc-credit .clip-card{margin-left:-14px;padding-left:44px}.sc-credit .clip-card .binder{left:-3px}}
+.sc-credit .clip-card{width:min(560px,90%)}
+.sc-credit .clip-card{margin-left:-64px;padding-left:104px;width:min(500px,90%)}
+.sc-credit .clip-card .binder{left:44px;top:-26px;width:40px;height:68px}
+@media (max-width:820px){.sc-credit .clip-card{margin-left:-14px;padding-left:44px}.sc-credit .clip-card .binder{left:-6px}}
+
+/* ---- 크레딧 메모지 (레퍼런스: 세로로 긴 종이 + 왼쪽 가장자리를 무는 바인더 집게) ---- */
+#aTheme{height:calc(var(--vh) * .44);left:75%;top:50%;translate:-50% -50%}
+#aCredit{height:calc(var(--vh) * .44);left:75%;top:50%;translate:-50% -50%}
+.sc-credit{height:calc(var(--vh) * .8);display:flex;align-items:center;padding-left:0}
+.sc-credit .clip-card{margin-left:0;width:300px;padding:26px 24px 30px;background:var(--orange);color:#2a1408;
+  box-shadow:8px 14px 26px -10px rgba(30,15,5,.5)}
+.sc-credit .clip-card{background:#A84E2E}   /* 크레딧 메모지: --orange보다 밝게 */
+.sc-credit .clip-card::before{opacity:.12}.sc-credit .clip-card::after{opacity:.04}   /* 잡티를 줄여 비쳐 보이지 않게 (불투명한 종이처럼) */
+.sc-credit .clip-card .binder{position:absolute;left:-92px;top:96px;width:150px;height:120px;background:none;box-shadow:none;border-radius:0;
+  filter:drop-shadow(3px 5px 4px rgba(0,0,0,.4));z-index:3}
+.sc-credit .clip-card .binder::before,.sc-credit .clip-card .binder::after{content:none}
+.cc-head{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 14px!important;padding-bottom:10px;border-bottom:1px solid currentColor;
+  font-family:var(--f-press);font-size:26px!important;line-height:1!important;text-transform:uppercase}
+.sc-credit .credit{margin:0}
+.sc-credit .credit div{display:grid;grid-template-columns:90px 1fr;padding:12px 0;border-bottom:1px solid rgba(42,20,8,.45);margin:0}
+.sc-credit .credit dt{font-size:12px}
+.sc-credit .credit dd{font-size:15px;margin:0}
+.sc-credit .clip-card p:not(.cc-head){font-size:13px;line-height:1.7;margin:16px 0 18px}
+@media (max-width:820px){.sc-credit{padding:0}.sc-credit .clip-card{width:min(300px,78%);margin-left:0}.sc-credit .clip-card .binder{left:-70px;width:110px;height:88px}
+  #aTheme,#aCredit{left:72%;height:calc(var(--vh) * .3)}}
+.sc-credit .credit{gap:0}.sc-credit .credit div{border-top:0}
+.sc-credit .clip-card{width:330px;padding-left:72px}.sc-credit .clip-card .binder{left:-94px;top:120px}@media (max-width:820px){.sc-credit .clip-card{width:min(320px,82%);padding-left:56px}.sc-credit .clip-card .binder{left:-72px}}
+/* 크레딧 카드: 너비는 그대로, 길이만 두 배 (내용 간격을 벌려서) */
+.sc-credit .clip-card{padding-top:56px;padding-bottom:64px}
+.sc-credit .cc-head{padding-bottom:20px;margin:0 0 40px!important}
+/* 밑줄은 글자 바로 밑에, 줄 사이 간격(글자~글자 68px)은 그대로 */
+.sc-credit .credit div{padding:62px 0 6px}
+.sc-credit .credit div:first-child{padding-top:34px}
+.sc-credit .clip-card p:not(.cc-head){margin:92px 0 0;color:#2a1408;font-weight:600}   /* 위 이름과 같은 색·굵기 (얇아서 연해 보이던 것) */
+.sc-credit .clip-card .binder{top:10px}
+/* 카드가 화면에 들어오면 가운데에 멈춰 따라오다가, 책이 옆에 안착하는 지점(섹션 가운데)부터 같이 올라감 */
+.sc-credit{align-items:flex-start}
+.sc-credit .clip-card{position:sticky;top:calc(var(--vh) / 2 - 250px);margin-bottom:calc(var(--vh) * .7 - var(--tab-h) / 2 - 250px)}
+
+/* 메인 레이어 윗줄(탭)은 표지색 */
+.sheet-main .tab{background:var(--split);color:color-mix(in srgb, var(--split) 30%, #000);border-bottom-color:rgba(0,0,0,.35);transition:background-color .6s,color .6s}
+/* 모든 레이어 윗줄(탭) 글자: 크레딧과 같은 영월체 (한글은 나눔명조 옛한글로) */
+.sheet .tab,.sheet .tab .tab-r{font-family:'Yeongwol','NanumMyeongjoYetHangul',serif;font-weight:400;font-size:15px;letter-spacing:0;text-transform:none}
+
+/* 메인 레이어 섹션 길이 (갤러리를 밖으로 뺀 만큼 나눠 가짐, 합계 = 화면 6장) */
+/* 표지: 시작 화면엔 표지색 + 책만, RANDOM BOOK 글자는 화면 반 장 아래에서 올라와 책 뒤에 맞춰짐 */
+.sc-cover{height:calc(var(--vh) * 1.6);padding-top:calc(var(--vh) * .5)}
+.sc-cover #aCover{top:calc(50% + var(--vh) * .25)}
+.sc-land{height:calc(var(--vh) * 1.6)}
+.sc-theme{height:calc(var(--vh) * 1.4)}
+.sc-credit{height:calc(var(--vh) * 1.4 - var(--tab-h))}
+/* 책 4권 가로 배치 (선택 책 칸은 비어 있고 떠 있는 책이 들어옴) */
+.sc-row{height:calc(var(--vh) * 1.2);display:grid;align-items:center;padding:0 clamp(24px,5vw,80px)}
+.row-books{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(16px,3vw,48px);align-items:center}
+.row-books .rb{justify-self:center;width:min(100%, calc(var(--vh) * .55 * 737 / 1176));aspect-ratio:737/1176}
+.row-books img{display:block;width:100%;height:100%;filter:drop-shadow(6px 10px 10px rgba(30,20,10,.4))}   /* 떠 있던 책이 안착했을 때와 같은 그림자 */
+/* 레이어가 끝난 뒤: 두꺼운 선 → 아래로 펼쳐져 푸른 종이 배경 (선의 너비·높이·색은 JS가 스크롤에 맞춰 계산) */
+.after-gap{position:relative;height:calc(var(--vh,100vh) * .25)}   /* 책 안착 → 선 → 차오름이 끝날 때까지 스크롤할 거리 (그 뒤 푸터가 아래에서 올라옴) */
+.visit{padding-top:0}
+/* 푸터 큰 글자: 원래처럼 한 줄로, 푸터 너비(--sw)에 꽉 차게 (RANDOM BOOK은 BLIND BOOK보다 길어 줄바꿈되며 겹치던 것)
+   화면이 다 어두워진 뒤 조금 숨을 두고 등장 */
+.visit{padding-top:calc(var(--vh,100vh) * .12)}
+.visit > .giant{margin-top:0;white-space:nowrap;font-size:calc(var(--sw) / 5.15);line-height:.86}
+/* 푸터 문구: 평소엔 푸터 아래(=화면 아래) 밖에 숨어 있다가, 끝까지 스크롤하면(.up) 쫙 올라옴 */
+.visit{overflow:hidden}
+.visit > .giant,.visit > .foot{translate:0 140%;transition:translate .9s cubic-bezier(.2,.8,.2,1)}
+.visit > .foot{translate:0 400%}
+.visit.up > .giant,.visit.up > .foot{translate:0 0}
+.visit.up > .foot{transition-delay:.12s}
+/* 선은 화면 하단에 고정(아래에서 28px) → 위로 번지며 화면을 다 덮고, 다 덮은 뒤에는 그대로 화면 뒤 배경으로 남음
+   → 그 아래 내용(책 띠, 입장권, 푸터)은 배경 없이 이 위로 지나감: 배경이 한 장뿐이라 새 배경이 올라오는 이음새가 없음 */
+.ag-bar{position:absolute;left:0;top:28px;width:0;height:18px;background:#E4DFD6;overflow:hidden;pointer-events:none}   /* 레이어 끝 바로 아래 흰 선 (너비는 JS가 스크롤에 맞춰) */
+.after-zone{position:relative;z-index:60}
+body.view-hero .after-zone{display:none}
+
+/* 오른쪽 메모 카드 (레퍼런스의 Contact us 카드) */
+.note-rail{position:absolute;top:0;bottom:0;left:calc(50% + var(--sw) / 2 - 130px);width:340px;z-index:35;pointer-events:none}
+/* 처음엔 화면 아래에 RESERVE A VISIT 글자가 반쯤만 보이고, 스크롤 끝에 가까워질수록 화면 위쪽으로 올라옴 (top은 JS가 매 프레임 계산) */
+.note-card{position:sticky;top:calc(var(--vh) - 42px);display:block;width:340px;height:300px;margin-top:calc(var(--vh) - 42px);pointer-events:auto;text-align:left;
+  background:#E8E0CF;color:#1d1712;box-shadow:-2px 10px 30px -8px rgba(0,0,0,.55);overflow:hidden;cursor:pointer;transition:translate .4s var(--ease)}
+.note-card::before{content:"";position:absolute;inset:0;opacity:.75;mix-blend-mode:multiply;pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .26  0 0 0 0 .2  0 0 0 1.1 -.15'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+.nc-lines{position:absolute;left:0;right:18px;top:96px;height:120px;opacity:.18;
+  background:repeating-linear-gradient(180deg,transparent 0 26px,#1d1712 26px 27px)}
+
+.nc-big{position:absolute;right:18px;top:20px;font-family:var(--f-press);font-size:44px;line-height:.95;text-transform:uppercase;white-space:nowrap}
+@media (max-width:820px){.note-rail{display:none}}
+
+/* ---- 서브 레이어 길이: 내용 양만큼 (메인만 화면 6장) ---- */
+.sheet:not(.sheet-main) .frame{min-height:0}
+.sheet:not(.sheet-main) .pad{min-height:0;display:block;padding-top:72px;padding-bottom:160px}
+.sheet:not(.sheet-main) .blk{margin:0 0 140px}
+.sheet:not(.sheet-main) .blk:last-child{margin-bottom:0}
+
+/* ---- 분홍(예약) 레이어: 레퍼런스처럼 위쪽 막대 3열 + 왼쪽 막대 기둥 + 오른쪽에 줄로 나뉜 내용 ---- */
+.sheet-pink{color:#2A0F06}   /* 벽돌색 글자는 분홍 바탕에서 안 보여서 진한 갈색으로 */
+.sheet-pink ::placeholder{color:rgba(42,15,6,.55)}
+.sheet-pink .dates small,.sheet-pink .slots small{opacity:1}
+.sheet-pink .frame::before{width:132px;right:46px;opacity:.9}
+.sheet-pink .pad{max-width:none;display:grid!important;grid-template-columns:28% 1fr;column-gap:28px;padding:22px 196px 140px 22px!important}
+.pk-top{grid-column:1 / -1;display:grid;grid-template-columns:repeat(3,1fr);gap:16px 18px;margin-bottom:22px}
+.pk-top i{display:block;height:46px;background:var(--pink-block);opacity:.92}
+.pk-left{grid-column:1;grid-row:2 / span 20;min-height:100%;
+  background:repeating-linear-gradient(180deg,var(--pink-block) 0 46px,transparent 46px 60px);opacity:.92;position:relative}
+.pk-left::after{content:"";position:absolute;left:0;right:0;top:120px;height:46px;background:#A8401F}
+.sheet-pink .blk{grid-column:2;margin:0 0 96px}
+.sheet-pink .blk:last-child{margin-bottom:0}
+.pk-head{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 6px;padding-bottom:10px;border-bottom:1px solid currentColor;
+  font-family:var(--f-press);font-weight:400;font-size:clamp(34px,3.2vw,52px);line-height:1;text-transform:uppercase;color:#3a160c}
+.sheet-pink .lead-ko{margin:18px 0 0;font-size:15px;color:#3a160c}
+.sheet-pink .rsv fieldset{display:grid;grid-template-columns:120px 1fr;column-gap:20px;align-items:start;border-top:1px solid rgba(42,15,6,.4);padding:18px 0;margin:0}
+.sheet-pink .rsv legend{float:left;grid-column:1;width:auto;border:0;margin:0;padding:0;font-family:var(--f-text);font-weight:600;font-size:15px;text-transform:none;letter-spacing:0}
+.sheet-pink .rsv fieldset > *:not(legend){grid-column:2}
+.sheet-pink .fields{grid-template-columns:120px 1fr!important;row-gap:14px}
+.sheet-pink .fields label{grid-column:2!important;font-weight:400;font-size:13px;margin-bottom:-8px}
+.sheet-pink .fields input,.sheet-pink .fields select,.sheet-pink .fields .agree{grid-column:2!important}
+.sheet-pink .dates button,.sheet-pink .slots button{border-color:rgba(42,15,6,.55);color:#3a160c}
+.sheet-pink .ink-btn{margin-top:22px}
+.sheet-pink .notice{border-top:1px solid rgba(42,15,6,.4);margin:0;color:#3a160c}
+/* 휴대폰: 위의 넓은 화면용 2칸 배치를 풀어 한 줄로 (장식 블록 숨김, 오른쪽 구멍 줄만큼만 여백) */
+@media (max-width:820px){
+  .sheet-pink .pad{display:block!important;padding:24px 56px 72px 22px!important}
+  .pk-top,.pk-left{display:none}
+  .sheet-pink .blk{margin:0 0 56px}
+  .sheet-pink .rsv fieldset{grid-template-columns:1fr;row-gap:12px}
+  .sheet-pink .rsv legend{float:none}
+  .sheet-pink .rsv fieldset > *:not(legend),.sheet-pink .fields label,.sheet-pink .fields input,.sheet-pink .fields select,.sheet-pink .fields .agree{grid-column:1!important}
+  .sheet-pink .fields{grid-template-columns:1fr!important}
+  .sheet-pink .dates,.sheet-pink .slots{grid-template-columns:1fr 1fr}
+}
+/* 스크롤하면 가운데 로고는 사라지고 햄버거만 따라옴 */
+.nav .logo{transition:opacity .4s var(--ease),translate .4s var(--ease)}
+.nav.scrolled .logo{opacity:0;translate:0 -8px;pointer-events:none}
+
+/* ---- 화면 안내 "?" 버튼: 맨 위로 바로 위, 레이어 화면에서만 ---- */
+.guide-q{position:fixed;right:calc(max(28px,env(safe-area-inset-right,0px)) + 7px);bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 52px);z-index:110;
+  width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--light);color:var(--light);
+  font-family:var(--f-press);font-size:16px;line-height:1;transition:background-color .25s,color .25s}
+.guide-q:hover,.guide-q:focus-visible{background:var(--light);color:var(--taupe)}
+body.view-hero .guide-q{display:none}
+
+/* ---- 레이어 안내: 화면 전체가 어두워지고, 레이어 옆에 그 레이어 색 포스트잇이 책갈피처럼 붙음 ---- */
+.lguide{position:fixed;inset:0;z-index:140;background:rgba(17,14,11,.7);opacity:0;transition:opacity .35s ease;touch-action:none;outline:0}
+.lguide.on{opacity:1}
+.lguide[hidden]{display:none}
+/* 포스트잇: 레이어 가장자리에 붙은 쪽을 축으로 살짝 기울고, 레이어 뒤에서 빠져나오듯 나타남 */
+.lg-note{position:absolute;left:0;top:0;margin:0;padding:11px 14px 12px;background:var(--bg);color:var(--fg);font-size:13.5px;line-height:1.55;
+  box-shadow:2px 8px 16px -8px rgba(0,0,0,.7);rotate:var(--r,0deg);transform-origin:0 0;opacity:0;translate:-14px 0;transition:opacity .35s ease,translate .45s var(--ease)}
+.lg-note.from-left{transform-origin:100% 0;translate:14px 0}
+.lg-note[hidden]{display:none}
+.lguide.on .lg-note{opacity:1;translate:0 0}
+/* 종이 질감 */
+.lg-note::before,.lg-list::after{content:"";position:absolute;inset:0;opacity:.5;mix-blend-mode:multiply;pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .26  0 0 0 0 .2  0 0 0 1.1 -.15'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+/* 휴대폰: 메모 대신 화면 아래에 안내 목록 */
+.lg-list{display:none;margin:0;padding:0;list-style:none}
+@media (max-width:820px){
+  .lg-notes{display:none}
+  .lg-list{display:block;position:absolute;left:16px;right:16px;bottom:max(16px,env(safe-area-inset-bottom,0px));padding:4px 18px;background:var(--light);color:var(--ink);
+    box-shadow:0 12px 30px -8px rgba(0,0,0,.6);opacity:0;translate:0 24px;transition:opacity .35s ease,translate .45s var(--ease)}
+  .lguide.on .lg-list{opacity:1;translate:0 0}
+  .lg-list li{display:grid;grid-template-columns:10px 1fr;column-gap:12px;row-gap:2px;padding:12px 0;border-bottom:1px solid rgba(34,28,22,.18)}
+  .lg-list li:last-child{border-bottom:0}
+  .lg-list li::before{content:"";grid-row:1 / span 2;width:10px;height:10px;margin-top:5px;border-radius:50%;background:var(--c);box-shadow:inset 0 0 0 1px rgba(34,28,22,.35)}
+  .lg-list b{font-family:var(--f-press);font-weight:400;font-size:15px;letter-spacing:.04em;text-transform:uppercase}
+  .lg-list span{font-size:14px;line-height:1.55}
+}
+
+/* =========================================================
+   첫 화면: 이미지 드러내기 → 스토리 → 책 4권
+   ========================================================= */
+.hero{inset:0;display:block;padding:0}
+.reveal{position:absolute;inset:0;overflow:hidden;color:var(--light);background:transparent;   /* 뒤의 body 바탕(레이어와 같은 색·노이즈)이 비침 */
+  --tex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' seed='5'/><feColorMatrix values='1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 0 .32'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>") 0 0 / 220px;   /* 종이 질감: 굵은 노이즈 */
+  --paper:var(--tex),linear-gradient(rgba(236,229,214,.9),rgba(236,229,214,.9)),url("assets/main-paper.jpg") 0 0 / 589px auto repeat var(--main);   /* 왼쪽 칸 = 다 드러난 뒤 가운데 책 배경 */   /* 마지막 액자가 화면 가득 펼쳐지기 전까지의 배경 */
+  --fh:min(60.6vh,660px,calc((100vw - 48px) / .896));   /* 이미지 높이 (모든 이미지 동일) — 벤치마크: 917px 화면에서 556px */
+  --fw:calc(var(--fh) * .896);                          /* 이미지 너비 — 벤치마크 498×556 비율 */
+  --noise:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' seed='7'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -12 6.2'/></filter><rect width='100%' height='100%' fill='%23161210'/><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+
+/* 처음 안내: 가운데 위 글자 + 세로선 */
+.rv-hint{position:absolute;left:50%;top:clamp(56px,9vh,96px);translate:-50% 0;margin:0;text-align:center;font-family:"Inter Tight","Noto Sans KR",sans-serif;
+  font-size:12px;font-weight:600;letter-spacing:.06em;line-height:1.3;opacity:.55;transition:opacity .5s var(--ease)}
+.rv-hint::after{content:"";display:block;width:1px;height:60px;margin:10px auto 0;background:currentColor}
+.reveal.started .rv-hint{opacity:0}
+
+/* 이미지 자리: 화면 가운데, 모든 이미지 같은 크기 */
+.rv-stage{position:absolute;left:50%;top:50%;width:var(--fw);height:var(--fh);translate:-50% -50%}
+.rv-slide{position:absolute;inset:0;margin:0;opacity:0;
+  clip-path:inset(var(--cut,100%) 0 0 0);transform:scale(var(--sc,1));
+  filter:brightness(var(--br,1)) contrast(var(--ct,1)) saturate(var(--sat,1));
+  transition:opacity .2s,inset .9s var(--ease)}   /* 드러남·작아짐은 스크롤을 따라 매 프레임 계산 (미끄러지듯) */
+.rv-slide.in{opacity:1}
+.rv-art{position:absolute;inset:0;overflow:hidden;container-type:size;background:#2A2420}
+/* 입자: 띠로 따로 붙이지 않고 이미지 전체에 고르게 덮였다가, 다 드러날수록 사라짐 */
+.rv-grain{position:absolute;inset:0;pointer-events:none;opacity:var(--gr,0);mix-blend-mode:overlay;background:var(--noise) 0 0 / 140px}
+
+/* ---- 임시 이미지 (나중에 실제 이미지로 교체) ---- */
+.ph{display:grid;place-items:center;font-family:"Inter Tight","Noto Sans KR",sans-serif}
+.ph::before{content:"";position:absolute;inset:0;opacity:.12;mix-blend-mode:screen;background:var(--noise) 0 0 / 160px;pointer-events:none}
+
+.rv-img{width:100%;height:100%;object-fit:cover;display:block}
+.rv-color{filter:none}   /* 색이 바뀌는 이미지: 노출·채도 필터 대신 색 변화 + 입자만 */
+.ph-credit{color:#1A1210;   /* 드러나는 동안 주황 → 빨강 (벤치마크 효과) */
+  background:color-mix(in srgb,#FF5F2E calc((1 - var(--p,1)) * 100%),#EE3A2C)}
+.ph-credit .cr-r{position:absolute;left:-6%;top:50%;translate:0 -50%;font-family:"Pinyon Script",cursive;font-weight:400;font-size:125cqw;line-height:1}
+.ph-credit .cr-t{position:absolute;margin:0;font-family:"Inter Tight","Noto Sans KR",sans-serif;font-weight:600;font-size:2.6cqw;line-height:1.25;letter-spacing:.02em;text-transform:uppercase}
+.ph-credit .cr-t span{text-transform:none;font-weight:500}
+.ph-credit .cr-t i{font-style:normal;letter-spacing:-.1em;margin-right:.3em}
+.ph-credit .cr-head{left:38%;top:24%;text-align:right}
+.ph-credit .cr-a{left:14%;top:47%}
+.ph-credit .cr-b{right:6%;top:70%;text-align:right}
+.ph-credit .cr-ko{left:8%;bottom:7%;font-weight:500;text-transform:none;letter-spacing:0;line-height:1.6}
+.ph-title{background:#141210}
+.ph-title::before{opacity:.05}   /* 첫 이미지는 바탕 입자도 약하게 */
+.ph-title .tt-word{position:absolute;left:50%;top:50%;translate:-50% -50%;display:flex;flex-direction:column;align-items:center;gap:50cqw;white-space:nowrap;
+  font-family:"Pinyon Script",cursive;font-weight:400;font-size:26cqw;line-height:1;color:#F1ECE2}
+.ph-title .tt-book{position:relative;width:30cqw;filter:drop-shadow(0 2cqh 3cqh rgba(0,0,0,.6))}
+/* 이미지 2: 매장 팻말 — 책 포장과 같은 크라프트지·노끈으로 "이 책을 파는 가게"를 말 없이 보여 줌 */
+.ph-open{background:#1A1C21}   /* 첫 이미지(검정)와 구분되게 남색을 아주 살짝 입힌 검정 */
+.ph-open::before{opacity:.06}   /* 바탕 잡티는 은은하게 */
+.ph-open .op-hang{position:relative;width:62cqw;rotate:-3deg;transform-origin:50% 0}
+/* 노끈 끝(y=40)이 팻말 구멍 중심에 오도록 svg를 구멍 깊이(4cqw)만큼 팻말 위로 겹침 */
+.ph-open .op-string{position:relative;z-index:2;display:block;width:100%;height:16cqw;margin-bottom:-4cqw;overflow:visible}
+.ph-open .op-string path{fill:none;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+.ph-open .s-shadow{stroke:rgba(0,0,0,.4);stroke-width:1.1cqw;translate:.6cqw 1.4cqw;filter:blur(2px)}   /* 벽에 떨어진 그림자 */
+.ph-open .s-base{stroke:#6B5A43;stroke-width:1.1cqw}
+.ph-open .s-twist{stroke:#8C7758;stroke-width:.8cqw;stroke-dasharray:3px 2.2px}   /* 꼬인 가닥 */
+.ph-open .s-shine{stroke:rgba(241,236,226,.25);stroke-width:.2cqw;translate:-.15cqw -.15cqw}
+.ph-open .op-nail{position:absolute;z-index:3;left:50%;top:-.6cqw;width:2.6cqw;height:2.6cqw;margin-left:-1.3cqw;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#8d939c,#3a3f47 45%,#15181c);box-shadow:.4cqw .7cqw .8cqw rgba(0,0,0,.55)}
+.ph-open .op-sign{position:relative;background:#9A7C55;padding:9cqw 6cqw 7cqw;text-align:center;color:#1A1210;
+  box-shadow:inset 0 0 0 .3cqw rgba(60,40,20,.18),1.5cqw 3cqw 5cqw rgba(0,0,0,.45)}
+.ph-open .op-hole{position:absolute;top:2.6cqw;width:2.8cqw;height:2.8cqw;margin-left:-1.4cqw;border-radius:50%;
+  background:radial-gradient(circle,#1d2430 40%,#c2a77d 45%,#7c6142 70%);box-shadow:inset .2cqw .3cqw .4cqw rgba(0,0,0,.5)}   /* 쇠고리 구멍 */
+.ph-open .op-hole.l{left:10%}.ph-open .op-hole.r{left:90%}
+.ph-open .op-sign p{margin:5cqw 0 0;font-family:"Special Elite",monospace;font-size:2.8cqw;letter-spacing:.12em}
+.ph-open .op-sign .op-title{margin:0;font-size:5.8cqw;white-space:nowrap;letter-spacing:.04em;line-height:1;opacity:.92}   /* 타자기 잉크처럼 살짝 바램 */
+
+/* ---- 스토리 액자: 가운데 아래 노이즈 책 + 노끈 길 + 표지판 (2:3 상자 기준으로 그려서 확대돼도 같은 구도) ---- */
+/* 배경: 드러나는 동안 2칸마다 책 색이 바뀜 (kraft→brick→olive→ink) → 다 드러나면 네 색을 섞은 색. 색은 JS가 background-color로 넣음 */
+/* 고운 노이즈만 배경색 위에 한 겹 (섞기 효과 없이 → 가벼움) */
+.story-art{background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' seed='11'/><feColorMatrix values='1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 0 .16'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>") 0 0 / 220px var(--taupe);
+  transition:background-color .5s var(--ease)}
+/* 다 드러나면(9칸) 왼쪽 칸과 같은 종이 배경이 서서히 덮임 → 3칸·확대·책 4권 화면까지 이어짐 */
+.story-art::before{content:"";position:absolute;inset:0;pointer-events:none;background:var(--paper);opacity:1}   /* 스크롤해도 색이 바뀌지 않고 처음부터 종이 배경 */
+.rv-story:not(.full) .story-art{box-shadow:inset 0 0 0 1px rgba(241,236,226,.16)}   /* 액자일 때만 가는 테두리로 구분 */
+.reveal.full .rv-story .story-art{box-shadow:none}
+.st-box{position:absolute;top:0;bottom:0;left:50%;aspect-ratio:2/3;translate:-50% 0;container-type:size;transition:opacity .7s var(--ease),translate .9s var(--ease)}
+.st-path{position:absolute;left:0;right:0;top:0;height:60%;width:100%;overflow:visible}
+.st-path path{fill:none;stroke:#C9A57A;stroke-width:3;vector-effect:non-scaling-stroke;opacity:.9}
+.st-book{position:absolute;left:50%;bottom:-18%;height:60%;aspect-ratio:737/1176;translate:-50% 0;filter:drop-shadow(1.2cqh 2cqh 2cqh rgba(0,0,0,.55))}
+
+/* 노이즈 덮인 책: 흑백 + 책 모양으로 오린 노이즈 (색은 마우스를 올리면 돌아옴) */
+.st-book img,.pk-book img{display:block;width:100%;height:100%;filter:grayscale(1);transition:filter .45s ease}
+.pk-book img{filter:none}   /* 책 4권은 처음부터 컬러: "색으로 고르기" (가운데 스토리 책만 흑백) */
+
+/* 마지막 이미지가 화면 가득 확대 */
+.reveal.full .rv-story{inset:calc((var(--fh) - 100vh) / 2) calc((var(--fw) - 100vw) / 2)}
+
+/* 스토리 양옆 글 */
+.st-left,.st-right{position:absolute;top:50%;translate:0 -50%;opacity:0;transition:opacity .6s var(--ease),translate .6s var(--ease);pointer-events:none;z-index:3}
+.st-left{left:clamp(32px,11vw,240px)}
+.st-right{right:clamp(32px,10vw,220px);max-width:300px}
+.reveal.sides .st-left,.reveal.sides .st-right{opacity:1}
+.st-kicker{margin:0 0 14px;font-family:"Inter Tight",sans-serif;font-weight:600;font-size:18px;color:#C9A57A}   /* 넓은 화면과 같은 금색 */
+.st-left h2{margin:0;font-family:"Inter Tight","Noto Sans KR",sans-serif;font-weight:700;font-size:clamp(30px,2.7vw,46px);line-height:1.15;letter-spacing:-.03em}
+.st-right p{margin:0 0 18px;font-family:"Noto Sans KR",sans-serif;font-weight:500;font-size:15px;line-height:1.85;opacity:.8}
+.st-right b{font-weight:700;opacity:1}
+.st-right .st-how{margin-top:30px;padding-top:16px;border-top:1px solid rgba(241,236,226,.3);opacity:1}
+
+/* 넓은 화면: 양옆 글을 가운데 액자와 같은 크기의 칸에 담아 3칸. 칸은 레이어 종이 색(왼쪽 포장 겨자색, 오른쪽 예약 분홍)이고
+   스크롤 한 번에 가운데 액자 뒤에서 양옆으로 동시에 퍼져 나옴. 확대될 때는 가운데(.rv-stage)가 양옆 칸을 덮음 */
+@media (min-width:821px){
+  .rv-stage{z-index:2}
+  /* 확대해도 화면을 꽉 채우지 않고 가운데 큰 액자(메뉴 아래 ~ 아래 40px, 좌우 14vw)까지만. 책 4권도 같은 칸 안에 */
+  .reveal.full .rv-story{inset:calc(var(--nav-h) + 10px - (100vh - var(--fh)) / 2) calc(14vw - (100vw - var(--fw)) / 2) calc(40px - (100vh - var(--fh)) / 2)}
+  .picks{inset:calc(var(--nav-h) + 10px) 14vw 40px}
+  .reveal.full .st-left,.reveal.full .st-right{opacity:0}   /* 확대되면 양옆 글은 사라짐 (박스 밖으로 삐져나오지 않게) */
+  .rv-progress{z-index:5}
+  .st-left,.st-right{z-index:1;left:50%;right:auto;top:50%;width:var(--fw);height:var(--fh);max-width:none;
+    box-sizing:border-box;padding:0 calc(var(--fw) * .11);display:flex;flex-direction:column;justify-content:center;
+    translate:-50% -50%;transition:opacity .3s,translate .6s var(--ease)}   /* 평소엔 가운데 액자 뒤에 숨어 있음 */
+  /* 양옆 칸 단계가 되면 좌우 제자리로 퍼짐. 24px = 칸 사이 간격 */
+  .st-left{color:var(--light)}   /* 박스 없이 글자만 */
+  .st-right{color:var(--light)}
+  .reveal.sides .st-left{translate:calc(-150% - 24px) -50%}
+  .reveal.sides .st-right{translate:calc(50% + 24px) -50%}
+  .st-left .st-kicker,.st-right .st-kicker{color:#C9A57A;font-size:14px;letter-spacing:.04em}
+  .st-left h2{font-size:clamp(28px,calc(var(--fw) * .075),40px)}
+  .st-body{margin:22px 0 0;font-family:"Noto Sans KR",sans-serif;font-size:14px;line-height:1.85;opacity:.85}
+  .st-right p{opacity:1}
+  .st-right .st-lead{margin:0 0 18px;font-size:15px;line-height:1.75}
+  .st-steps{margin:0;padding:0;list-style:none;counter-reset:st;border-top:1px solid rgba(241,236,226,.25)}
+  .st-steps li{counter-increment:st;display:grid;grid-template-columns:28px 1fr;column-gap:4px;padding:10px 0;border-bottom:1px solid rgba(241,236,226,.25);
+    font-family:"Noto Sans KR",sans-serif;font-size:13px;line-height:1.6}
+  .st-steps li::before{content:counter(st,decimal-leading-zero);grid-row:span 2;font-family:"Inter Tight",sans-serif;font-weight:700;font-size:13px}
+  .st-steps b{display:block;font-size:14px}
+  .st-right .st-how{margin-top:18px;padding-top:0;border-top:0;font-size:13px}
+}
+
+/* 책 4권: 같은 너비 4칸, 칸 사이는 가는 선 */
+.picks{position:absolute;inset:0 14vw;z-index:4;display:flex;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .3s}
+.reveal.picking .picks{opacity:1;pointer-events:auto}
+.reveal.picking .st-box{opacity:0;translate:-50% -55%}   /* 책 4권이 아래에서 올라올 때 가운데 책·실 세 가닥은 위로 올라가며 사라짐 */
+.reveal.picking .rv-slide{inset:0;opacity:0;transition:opacity .6s var(--ease)}   /* 책 4권 화면: 앞의 사진들과 아이보리 액자 모두 커지지 않고 그 자리에서 사라짐 → 어두운 바탕 위에 책만 */
+.reveal.picking .rv-slide:not(.rv-story){transition:none}   /* 액자 뒤 사진들은 페이드 없이 즉시 숨김 (액자가 사라질 때 비쳐 보이지 않게) */
+.pick{position:relative;flex:1 1 0;min-width:0;display:grid;place-items:center;padding:0;transition:flex-grow .6s var(--ease)}
+.pick.on{flex-grow:1.55}   /* 호버한 칸이 넓어짐 (배경색 없이 책 색만 돌아옴) */
+.pk-book{position:relative;height:min(52vh,560px,calc(18vw * 1176 / 737 * .72));aspect-ratio:737/1176;transition:scale .6s var(--ease);filter:drop-shadow(10px 18px 20px rgba(0,0,0,.55))}
+.pick.on .pk-book img{filter:none}
+.pick.on .pk-book{scale:1.18}
+
+/* 진행 막대(오른쪽), 건너뛰기(아래) */
+.rv-progress{position:absolute;right:clamp(20px,3vw,56px);top:50%;width:1px;height:120px;translate:0 -50%;background:rgba(241,236,226,.22)}
+.rv-progress i{position:absolute;inset:0;background:var(--light);transform-origin:top;transform:scaleY(0)}
+
+.reveal.picking .rv-progress{opacity:0;pointer-events:none}
+
+/* 첫 화면에서는 위쪽 메뉴를 숨김, 마우스를 맨 위로 올리면 보임 */
+body.view-hero .nav{opacity:0;pointer-events:none;transition:opacity .35s var(--ease)}
+body.view-hero.nav-peek .nav,body.view-hero .nav:focus-within{opacity:1;pointer-events:auto}
+
+@media (max-width:820px){
+  .st-left{left:24px;right:24px;top:calc(var(--nav-h) + 8px);translate:0 0;text-align:center}
+  .st-right{left:24px;right:24px;top:auto;bottom:64px;translate:0 0;max-width:none;text-align:center}
+  .st-right p{font-size:13px;margin-bottom:8px}
+  .st-right p:not(.st-how){display:none}
+  .st-steps,.st-body{display:none}
+  .picks{inset:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;padding:var(--nav-h) 0 48px}
+  .pk-book{height:min(30vh,calc(50vw * 1176 / 737 * .7))}
+}
+
+/* ---------- 휴대폰: 위에 고정된 네비 + 레이어 바로가기 동그라미 ---------- */
+.nav-dots{display:none}
+@media (max-width:820px){
+  body.view-layers .nav{background:var(--taupe);box-shadow:0 6px 16px -10px rgba(0,0,0,.8)}   /* 내용 위에 떠서 따라오는 바 */
+  body.view-layers .nav::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.3;mix-blend-mode:multiply;background-image:var(--grain1)}
+  body.view-layers .nav.scrolled .logo{opacity:1;translate:0 0;pointer-events:auto}   /* 휴대폰은 로고도 그대로 */
+  body.view-layers .nav-dots{display:flex;justify-self:end;gap:8px}
+  .nav-dot::before{border-radius:50%}
+  .nav-dot{position:relative;width:18px;height:18px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+  .nav-dot::after{content:"";position:absolute;inset:-6px}   /* 손가락으로 누르기 쉽게 터치 영역만 넓힘 */
+  .nav-dot[data-go=main]{background:linear-gradient(rgba(207,196,174,.85),rgba(207,196,174,.85)),url("assets/main-paper.jpg") 0 0 / 589px auto repeat var(--main)}
+  .nav-dot[data-go=orange]{background:var(--wrap)}
+  .nav-dot[data-go=pink]{background:var(--pink)}
+  .nav-dot[data-go=board]{background:var(--board)}
+  .nav-dot.on{outline:1.5px solid var(--light);outline-offset:2px}   /* 지금 맨 앞 레이어 */
+}

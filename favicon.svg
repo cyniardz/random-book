@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- 픽셀 책: 맨 위로 버튼과 같은 픽셀 스타일. 벽돌색 포장 + 아이보리 띠 + 노끈 리본 -->
+  <rect x="3" y="1" width="10" height="14" fill="#1C1C1C"/>
+  <rect x="4" y="2" width="8" height="6" fill="#A0503A"/>
+  <rect x="4" y="2" width="1" height="6" fill="#7A3524"/>
+  <rect x="4" y="9" width="8" height="5" fill="#EDE4D3"/>
+  <rect x="4" y="9" width="1" height="5" fill="#C9BFAE"/>
+  <rect x="4" y="8" width="8" height="1" fill="#C9A57A"/>
+  <rect x="6" y="7" width="1" height="1" fill="#C9A57A"/>
+  <rect x="9" y="7" width="1" height="1" fill="#C9A57A"/>
+  <rect x="7" y="9" width="1" height="1" fill="#C9A57A"/>
+  <rect x="8" y="10" width="1" height="1" fill="#C9A57A"/>
+</svg>
