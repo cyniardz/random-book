@@ -407,19 +407,25 @@ function hideLayerGuide() {
   updateTabs(from);
 }
 
-/* 포스트잇 탭: 안내를 한 번 본 뒤 레이어 화면(넓은 화면)에서 항상 보임. 화면에 고정
-   자리: 각 레이어의 맨 위(페이지 처음 위치) 높이, 레이어가 튀어나온 쪽 바깥에 딱 붙음 */
-var lgTabs = $('#lgTabs');   // var: 이 줄보다 먼저 불릴 수 있는 updateTabs에서 안전하게 확인
+/* 포스트잇 탭: 안내를 한 번 본 뒤 레이어 화면(넓은 화면)에서 보임
+   레이어 뒷면에 붙인 것처럼: 모든 레이어보다 뒤(다른 레이어에 가려짐), 자기 레이어와 함께 움직임(시차 포함)
+   자리: 레이어 윗줄 높이, 레이어가 튀어나온 쪽 바깥. 푸터의 흰 선이 그어지기 시작하면 모두 사라짐 */
+var lgTabs = $('#lgTabs');
+stack.prepend(lgTabs);   // 레이어들과 같은 판(#stack) 맨 뒤에 둠 → 레이어보다 아래, 판 밖(흰 선 아래)으로는 안 나옴   // var: 이 줄보다 먼저 불릴 수 있는 updateTabs에서 안전하게 확인
 lgTabs.innerHTML = GUIDE.map(g => `<button type="button" class="lg-tab" data-g="${g.id}" style="--bg:${g.bg};--fg:${g.fg}" aria-label="${g.name} 앞으로">${g.name}</button>`).join('');
 var lgTab = Object.fromEntries($$('.lg-tab', lgTabs).map(t => [t.dataset.g, t]));
 $$('.lg-tab', lgTabs).forEach(t => t.addEventListener('click', e => { e.stopPropagation(); toggleLayer(t.dataset.g); }));
 function layoutTabs() {
-  const stTop = stage.getBoundingClientRect().top + scrollY, mainLeft = sheets.main.getBoundingClientRect().left;
+  const sr = stack.getBoundingClientRect(), mainLeft = sheets.main.getBoundingClientRect().left;
   GUIDE.forEach(g => {
-    const t = lgTab[g.id], r = sheets[g.id].getBoundingClientRect(), left = r.left < mainLeft - 1;
+    const t = lgTab[g.id], s = sheets[g.id], r = s.getBoundingClientRect(), left = r.left < mainLeft - 1;
     t.classList.toggle('from-left', left);
-    t.style.top = (stTop + slotPos(DEFAULT_ORDER.indexOf(g.id)).y) + 'px';
-    t.style.left = (left ? r.left - t.offsetWidth : r.right) + 'px';
+    t.style.top = s.style.top || '0px';
+    t.style.left = ((left ? r.left - t.offsetWidth : r.right) - sr.left) + 'px';
+    // 시차: 자기 레이어와 같은 값
+    t.style.setProperty('--lag', s.style.getPropertyValue('--lag'));
+    t.style.setProperty('--end', s.style.getPropertyValue('--end'));
+    t.style.transform = s.style.transform;
   });
 }
 function updateTabs(from) {
@@ -556,6 +562,7 @@ function measure() {
     s.style.setProperty('--end', end.toFixed(0) + 'px');
   }
   placeLayers();
+  if (lgTabs && lgTabs.classList.contains('on')) layoutTabs();
   requestAnimationFrame(() => Object.values(sheets).forEach(s => { s.style.transition = ''; }));
 }
 addEventListener('resize', () => { measure(); });
@@ -583,6 +590,7 @@ function placeLayers() {
   for (const id in sheets) {
     const lag = y * (1 - geo.speed[id]);
     sheets[id].style.transform = Math.abs(lag) > .1 ? `translate3d(0,${lag.toFixed(1)}px,0)` : '';
+    if (lgTab && lgTab[id]) lgTab[id].style.transform = sheets[id].style.transform;
   }
 }
 addEventListener('scroll', placeLayers, { passive: true });
@@ -639,6 +647,7 @@ function drawLayers(dt) {
   //            → 그 아래 빈 배경에 푸터 글자가 올라옴 (덮는 면 없음)
   const g = afterGap.getBoundingClientRect().top;
   agBar.style.width = (clamp((V - g) / (V * .35)) * 100).toFixed(2) + '%';
+  lgTabs.classList.toggle('gone', V - g > 0);   // 흰 선이 그어지기 시작하면 포스트잇 탭 모두 숨김, 위로 올리면 다시
   // 푸터 문구: 흰 선이 다 그어지는 순간 바로 쫙 올라옴 (선이 줄어들 만큼 위로 올리면 다시 숨음)
   const barDone = (V - g) / (V * .35);
   if (barDone >= 1) visitEl.classList.add('up');

@@ -612,12 +612,19 @@ body.view-hero .guide-q{display:none}
 .lguide.on .lg-note{opacity:1;translate:0 0}
 .lguide.morph .lg-note{opacity:0;transition:none}   /* 닫을 때: 포스트잇은 탭으로 바뀌어 날아가므로 그 자리에서 바로 숨김 */
 /* 포스트잇 탭: 이름만 남은 작은 포스트잇이 레이어 바깥 가장자리에 붙어 고정. 맞닿는 쪽에 가는 경계선 */
-.lg-tabs{position:fixed;inset:0;z-index:90;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s .3s}
+.lg-tabs{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s .3s}
 .lg-tabs.on{opacity:1;visibility:visible;transition:opacity .3s}
+.lg-tabs.on.gone{opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s .3s}
 .lg-tab{position:absolute;left:0;top:0;height:var(--tab-h);padding:0 16px;display:flex;align-items:center;white-space:nowrap;overflow:hidden;pointer-events:auto;
   background:var(--bg);color:var(--fg);font-family:'Yeongwol','NanumMyeongjoYetHangul',serif;font-size:15px;line-height:1;
   border-left:1.5px solid rgba(0,0,0,.4);box-shadow:3px 4px 10px -6px rgba(0,0,0,.7)}
 .lg-tab.from-left{border-left:0;border-right:1.5px solid rgba(0,0,0,.4);box-shadow:-3px 4px 10px -6px rgba(0,0,0,.7)}
+.scroll-tl body.view-layers .lg-tab{animation:layerLag linear both;animation-timeline:scroll(root);animation-range:0px var(--end,1px)}   /* 자기 레이어와 같은 시차 */
+/* 레이어 윗줄 글자는 포스트잇이 붙은 쪽의 반대편으로 (포스트잇 이름과 나란히 붙어 보이지 않게) */
+.sheet-main .tab,.sheet-pink .tab,.sheet-board .tab{grid-template-columns:auto 1fr}
+.sheet-main .tab > span:empty,.sheet-pink .tab > span:empty,.sheet-board .tab > span:empty{display:none}
+.sheet-main .tab .tab-r,.sheet-pink .tab .tab-r,.sheet-board .tab .tab-r{justify-self:start}
+.sheet-orange .tab > span:not(.dots){justify-self:end}
 body.view-hero .lg-tabs{display:none}
 /* 종이 질감 */
 .lg-note::before,.lg-list::after,.lg-tab::before{content:"";position:absolute;inset:0;opacity:.5;mix-blend-mode:multiply;pointer-events:none;
