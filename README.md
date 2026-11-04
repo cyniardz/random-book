@@ -104,7 +104,7 @@ random-book/
     ├── book-olive.webp
     ├── book-ink.webp
     ├── main-paper.jpg    # 종이 배경
-    └── second-bw.png     # 첫 화면 흑백 사진
+    └── second-bw.webp    # 첫 화면 흑백 사진
 ```
 
 ## 로컬에서 보기
