@@ -619,7 +619,7 @@ body.view-hero .guide-q{display:none}
   background:var(--bg);color:var(--fg);font-family:'Yeongwol','NanumMyeongjoYetHangul',serif;font-size:15px;line-height:1;
   border-left:1.5px solid rgba(0,0,0,.4);box-shadow:3px 4px 10px -6px rgba(0,0,0,.7)}
 .lg-tab.from-left{border-left:0;border-right:1.5px solid rgba(0,0,0,.4);box-shadow:-3px 4px 10px -6px rgba(0,0,0,.7)}
-.scroll-tl body.view-layers .lg-tab{animation:layerLag linear both;animation-timeline:scroll(root);animation-range:0px var(--end,1px)}   /* 자기 레이어와 같은 시차 */
+.lg-pin{position:sticky;top:0;height:100vh;height:100dvh}   /* 화면을 따라오는 판 (레이어 판이 끝나면 함께 멈춤) */
 /* 레이어 윗줄 글자는 포스트잇이 붙은 쪽의 반대편으로 (포스트잇 이름과 나란히 붙어 보이지 않게) */
 .sheet-main .tab,.sheet-pink .tab,.sheet-board .tab{grid-template-columns:auto 1fr}
 .sheet-main .tab > span:empty,.sheet-pink .tab > span:empty,.sheet-board .tab > span:empty{display:none}

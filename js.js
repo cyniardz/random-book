@@ -408,12 +408,14 @@ function hideLayerGuide() {
 }
 
 /* 포스트잇 탭: 안내를 한 번 본 뒤 레이어 화면(넓은 화면)에서 보임
-   레이어 뒷면에 붙인 것처럼: 모든 레이어보다 뒤(다른 레이어에 가려짐), 자기 레이어와 함께 움직임(시차 포함)
-   자리: 레이어 윗줄 높이, 레이어가 튀어나온 쪽 바깥. 푸터의 흰 선이 그어지기 시작하면 모두 사라짐 */
+   모든 레이어보다 뒤(다른 레이어에 가려짐), 스크롤해도 화면을 따라옴(sticky)
+   자리: 처음 화면에서 각 레이어 윗줄 높이, 레이어가 튀어나온 쪽 바깥. 푸터의 흰 선이 그어지기 시작하면 모두 사라짐 */
 var lgTabs = $('#lgTabs');
-stack.prepend(lgTabs);   // 레이어들과 같은 판(#stack) 맨 뒤에 둠 → 레이어보다 아래, 판 밖(흰 선 아래)으로는 안 나옴   // var: 이 줄보다 먼저 불릴 수 있는 updateTabs에서 안전하게 확인
-lgTabs.innerHTML = GUIDE.map(g => `<button type="button" class="lg-tab" data-g="${g.id}" style="--bg:${g.bg};--fg:${g.fg}" aria-label="${g.name} 앞으로">${g.name}</button>`).join('');
-var lgTab = Object.fromEntries($$('.lg-tab', lgTabs).map(t => [t.dataset.g, t]));
+stack.prepend(lgTabs);   // 레이어들과 같은 판(#stack) 맨 뒤 → 레이어에 가려지고, 판이 끝나는 곳(흰 선) 아래로는 안 나옴
+lgTabs.innerHTML = '<div class="lg-pin" id="lgPin"></div>';
+var lgPin = $('#lgPin');   // var: 이 줄보다 먼저 불릴 수 있는 updateTabs에서 안전하게 확인
+lgPin.innerHTML = GUIDE.map(g => `<button type="button" class="lg-tab" data-g="${g.id}" style="--bg:${g.bg};--fg:${g.fg}" aria-label="${g.name} 앞으로">${g.name}</button>`).join('');
+var lgTab = Object.fromEntries($$('.lg-tab', lgPin).map(t => [t.dataset.g, t]));
 $$('.lg-tab', lgTabs).forEach(t => t.addEventListener('click', e => { e.stopPropagation(); toggleLayer(t.dataset.g); }));
 function layoutTabs() {
   const sr = stack.getBoundingClientRect(), mainLeft = sheets.main.getBoundingClientRect().left;
@@ -422,10 +424,6 @@ function layoutTabs() {
     t.classList.toggle('from-left', left);
     t.style.top = s.style.top || '0px';
     t.style.left = ((left ? r.left - t.offsetWidth : r.right) - sr.left) + 'px';
-    // 시차: 자기 레이어와 같은 값
-    t.style.setProperty('--lag', s.style.getPropertyValue('--lag'));
-    t.style.setProperty('--end', s.style.getPropertyValue('--end'));
-    t.style.transform = s.style.transform;
   });
 }
 function updateTabs(from) {
@@ -590,7 +588,6 @@ function placeLayers() {
   for (const id in sheets) {
     const lag = y * (1 - geo.speed[id]);
     sheets[id].style.transform = Math.abs(lag) > .1 ? `translate3d(0,${lag.toFixed(1)}px,0)` : '';
-    if (lgTab && lgTab[id]) lgTab[id].style.transform = sheets[id].style.transform;
   }
 }
 addEventListener('scroll', placeLayers, { passive: true });
