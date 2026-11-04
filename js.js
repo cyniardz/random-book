@@ -232,13 +232,13 @@ function enterLayers(i, panel, frontLayer) {
 function showHero(save = true, at = 0) {   // at: 첫 화면의 몇 번째 칸에서 시작할지 (0 = 맨 처음, S_TOTAL = 책 4권)
   $('#nav').classList.remove('scrolled');
   jumpTo(at);
-  view = 'hero'; if (save) store.set('view', view);
+  view = 'hero'; if (save) store.set('view', view); updateTabs();
   document.body.classList.replace('view-layers', 'view-hero');
   scrollTo(0, 0);
   $$('.sheet-orange .credit, .sheet-orange .steps').forEach(el => el.classList.remove('drawn'));   // 첫 화면을 다녀오면 밑줄들은 다시 그어질 준비
 }
 function showLayers(toTop) {
-  view = 'layers'; store.set('view', view);
+  view = 'layers'; store.set('view', view); updateTabs();
   document.body.classList.replace('view-hero', 'view-layers');
   measure();
   gliding = false;
@@ -390,17 +390,54 @@ function showLayerGuide({ force = false } = {}) {   // force: "?" 버튼 (본 �
   store.set('guide', true);
   clearTimeout(lgTimer);
   lgReturn = document.activeElement;
-  lgOpen = true; lguide.hidden = false;
+  lgOpen = true; lguide.hidden = false; updateTabs();
   layoutGuide();
   requestAnimationFrame(() => requestAnimationFrame(() => lguide.classList.add('on')));
   lguide.focus({ preventScroll: true });
 }
 function hideLayerGuide() {
   if (!lgOpen) return;
+  // 포스트잇 자리를 기억해 두었다가, 탭이 그 자리에서 줄어들며 레이어 옆으로 감
+  const from = narrowMQ.matches ? null : Object.fromEntries(GUIDE.map(g => [g.id, lgNote[g.id].getBoundingClientRect()]));
   lgOpen = false; lguide.classList.remove('on');
   clearTimeout(lgTimer);
-  if (reduce) lguide.hidden = true; else lgTimer = setTimeout(() => { lguide.hidden = true; }, 400);
+  if (from) lguide.classList.add('morph');
+  if (reduce) lguide.hidden = true; else lgTimer = setTimeout(() => { lguide.hidden = true; lguide.classList.remove('morph'); }, 400);
   if (lgReturn) lgReturn.focus({ preventScroll: true });
+  updateTabs(from);
+}
+
+/* 포스트잇 탭: 안내를 한 번 본 뒤 레이어 화면(넓은 화면)에서 항상 보임. 화면에 고정
+   자리: 각 레이어의 맨 위(페이지 처음 위치) 높이, 레이어가 튀어나온 쪽 바깥에 딱 붙음 */
+var lgTabs = $('#lgTabs');   // var: 이 줄보다 먼저 불릴 수 있는 updateTabs에서 안전하게 확인
+lgTabs.innerHTML = GUIDE.map(g => `<button type="button" class="lg-tab" data-g="${g.id}" style="--bg:${g.bg};--fg:${g.fg}" aria-label="${g.name} 앞으로">${g.name}</button>`).join('');
+var lgTab = Object.fromEntries($$('.lg-tab', lgTabs).map(t => [t.dataset.g, t]));
+$$('.lg-tab', lgTabs).forEach(t => t.addEventListener('click', e => { e.stopPropagation(); toggleLayer(t.dataset.g); }));
+function layoutTabs() {
+  const stTop = stage.getBoundingClientRect().top + scrollY, mainLeft = sheets.main.getBoundingClientRect().left;
+  GUIDE.forEach(g => {
+    const t = lgTab[g.id], r = sheets[g.id].getBoundingClientRect(), left = r.left < mainLeft - 1;
+    t.classList.toggle('from-left', left);
+    t.style.top = (stTop + slotPos(DEFAULT_ORDER.indexOf(g.id)).y) + 'px';
+    t.style.left = (left ? r.left - t.offsetWidth : r.right) + 'px';
+  });
+}
+function updateTabs(from) {
+  if (!lgTabs) return;
+  const on = store.get('guide', false) && view === 'layers' && !lgOpen && !narrowMQ.matches;
+  lgTabs.classList.toggle('on', on);
+  if (!on) return;
+  layoutTabs();
+  if (!from || reduce) return;
+  GUIDE.forEach((g, k) => {
+    const t = lgTab[g.id], a = from[g.id], b = t.getBoundingClientRect();
+    if (!a || !a.width) return;
+    t.animate([
+      { translate: `${a.left - b.left}px ${a.top - b.top}px`, width: a.width + 'px', height: a.height + 'px', color: 'transparent' },
+      { translate: '0 0', width: b.width + 'px', height: b.height + 'px', color: 'transparent', offset: .75 },
+      { translate: '0 0', width: b.width + 'px', height: b.height + 'px' }
+    ], { duration: 650, delay: k * 50, easing: 'cubic-bezier(.7,0,.2,1)', fill: 'backwards' });
+  });
 }
 /* 포스트잇 자리: 각 레이어의 윗줄 높이에서, 그 레이어가 튀어나온 쪽 바깥에 책갈피처럼 붙음
    (메인보다 왼쪽에 놓인 레이어는 왼쪽, 나머지는 오른쪽 → 윗줄 글자를 가리지 않음)
@@ -427,8 +464,10 @@ lguide.addEventListener('click', hideLayerGuide);
 addEventListener('keydown', e => { if (e.key === 'Escape') hideLayerGuide(); });
 const relayoutGuide = () => { if (!lgOpen) return; cancelAnimationFrame(lgRaf); lgRaf = requestAnimationFrame(layoutGuide); };
 addEventListener('resize', relayoutGuide);
+addEventListener('resize', () => updateTabs());
 addEventListener('scroll', relayoutGuide, { passive: true });
 narrowMQ.addEventListener('change', relayoutGuide);
+narrowMQ.addEventListener('change', () => updateTabs());
 /* 회색(헌책) 레이어 책등 띠: 두께·높이가 제각각인 책등, 가끔 비스듬히 기댄 책. 같은 세트를 두 번 이어 붙여 끝없이 흐르게 */
 (function makeSpines() {
   let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -618,14 +657,9 @@ function drawLayers(dt) {
 
 
 /* 맨 위로 */
-// 맨 위로: 페이지 맨 위까지 올라간 뒤 → 책 4권 고르는 화면으로 (서브 레이어가 앞이면 메인으로 바꾸며 바로 맨 위)
+// 맨 위로: 지금 앞에 있는 레이어 그대로 페이지 맨 위로 (책을 고른 직후 화면). 첫 화면으로는 돌아가지 않음
 $('#toTop').addEventListener('click', () => {
-  const toPicks = () => { if (view === 'layers') showHero(true, S_TOTAL); };
-  const t0 = performance.now();
-  const waitTop = () => (scrollY <= 1 || performance.now() - t0 > 2500) ? setTimeout(toPicks, 150) : requestAnimationFrame(waitTop);
-  if (order[0] !== 'main') { swapTo(DEFAULT_ORDER.slice(), () => { smoothTo(0); scrollTo(0, 0); sp = 0; }); setTimeout(toPicks, 900); return; }
   if (reduce) { smoothTo(0); scrollTo(0, 0); } else { cur = scrollY; target = 0; gliding = true; }
-  requestAnimationFrame(waitTop);
 });
 
 /* =========================================================

@@ -595,9 +595,9 @@ body.view-hero .after-zone{display:none}
 
 /* ---- 화면 안내 "?" 버튼: 맨 위로 바로 위, 레이어 화면에서만 ---- */
 .guide-q{position:fixed;right:calc(max(28px,env(safe-area-inset-right,0px)) + 7px);bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 52px);z-index:110;
-  width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--light);color:var(--light);
+  width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--light);color:var(--light);background:var(--split);   /* 고른 책 색으로 채워서 눈에 띄게 */
   font-family:var(--f-press);font-size:16px;line-height:1;transition:background-color .25s,color .25s}
-.guide-q:hover,.guide-q:focus-visible{background:var(--light);color:var(--taupe)}
+.guide-q:hover,.guide-q:focus-visible{background:var(--light);color:var(--split)}
 body.view-hero .guide-q{display:none}
 
 /* ---- 레이어 안내: 화면 전체가 어두워지고, 레이어 옆에 그 레이어 색 포스트잇이 책갈피처럼 붙음 ---- */
@@ -610,8 +610,17 @@ body.view-hero .guide-q{display:none}
 .lg-note.from-left{transform-origin:100% 0;translate:14px 0}
 .lg-note[hidden]{display:none}
 .lguide.on .lg-note{opacity:1;translate:0 0}
+.lguide.morph .lg-note{opacity:0;transition:none}   /* 닫을 때: 포스트잇은 탭으로 바뀌어 날아가므로 그 자리에서 바로 숨김 */
+/* 포스트잇 탭: 이름만 남은 작은 포스트잇이 레이어 바깥 가장자리에 붙어 고정. 맞닿는 쪽에 가는 경계선 */
+.lg-tabs{position:fixed;inset:0;z-index:90;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s .3s}
+.lg-tabs.on{opacity:1;visibility:visible;transition:opacity .3s}
+.lg-tab{position:absolute;left:0;top:0;height:var(--tab-h);padding:0 16px;display:flex;align-items:center;white-space:nowrap;overflow:hidden;pointer-events:auto;
+  background:var(--bg);color:var(--fg);font-family:'Yeongwol','NanumMyeongjoYetHangul',serif;font-size:15px;line-height:1;
+  border-left:1.5px solid rgba(0,0,0,.4);box-shadow:3px 4px 10px -6px rgba(0,0,0,.7)}
+.lg-tab.from-left{border-left:0;border-right:1.5px solid rgba(0,0,0,.4);box-shadow:-3px 4px 10px -6px rgba(0,0,0,.7)}
+body.view-hero .lg-tabs{display:none}
 /* 종이 질감 */
-.lg-note::before,.lg-list::after{content:"";position:absolute;inset:0;opacity:.5;mix-blend-mode:multiply;pointer-events:none;
+.lg-note::before,.lg-list::after,.lg-tab::before{content:"";position:absolute;inset:0;opacity:.5;mix-blend-mode:multiply;pointer-events:none;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .26  0 0 0 0 .2  0 0 0 1.1 -.15'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
 /* 휴대폰: 메모 대신 화면 아래에 안내 목록 */
 .lg-list{display:none;margin:0;padding:0;list-style:none}
