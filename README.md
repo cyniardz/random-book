@@ -5,7 +5,8 @@
 제목과 표지를 가린 중고 소설을 파는 브랜드 **랜덤 북**의 첫 오프라인 팝업 **FIRST OPEN**을 위한 웹사이트입니다.
 웹사이트는 책을 온라인으로 파는 곳이 아니라, 매장 방문을 예약하는 곳입니다. 책을 고르고, 사고, 여는 경험은 매장에서만 완성됩니다.
 
-- Live: (배포 후 링크 추가)
+- Live: https://random-book-five.vercel.app
+- Wireframe (Figma): https://www.figma.com/design/Gq8TmNVt7qPHGKGSDSeBB7/Random-book · [docs/wireframe.md](docs/wireframe.md)
 - 기간: 2026.11.14 – 11.16 (3일, 시범 운영)
 - 장소: 서울 강남 (가상 주소)
 
@@ -45,7 +46,9 @@
 ## 화면 구성
 
 ### 1. 첫 화면 (Reveal)
-스크롤 한 번마다 한 장씩 이미지가 아래에서 위로 드러나는 시퀀스입니다.
+들어오면 어두운 바탕에 큰 "RANDOM BOOK" 글자가 은은하게 깔려 있어, 빈 화면 대신 브랜드 이름부터 보입니다. 스크롤을 시작하면 0.5초 안에 글자가 사라지고 첫 이미지가 올라옵니다.
+
+이후 스크롤 한 번마다 한 장씩 이미지가 아래에서 위로 드러나는 시퀀스입니다.
 
 1. 타이틀 — Random Book 로고와 책 한 권
 2. 매장 팻말 — 노끈에 걸린 크라프트지 팻말 "ONLY IN STORE"
@@ -67,7 +70,12 @@
 | Bring a book | 책 매입·기부 안내, Q&A, 규칙 |
 | Visit | 지도·평면도가 담긴 방문 티켓 |
 
-처음 들어오면 레이어마다 포스트잇 안내가 한 번 표시됩니다 (`?` 버튼으로 다시 보기).
+처음 들어오면 레이어마다 포스트잇 안내가 한 번 표시됩니다. 안내를 닫으면 포스트잇이 이름만 남은 작은 탭으로 줄어들어 각 레이어 옆에 붙습니다.
+
+- 탭은 모든 레이어보다 뒤에 있어, 종이 뒷면에 붙인 포스트잇처럼 다른 레이어가 지나가면 가려집니다.
+- 스크롤해도 화면을 따라오고, 누르면 그 레이어가 맨 앞으로 옵니다.
+- 레이어가 끝나고 푸터의 흰 선이 그어지기 시작하면 모두 사라집니다.
+- 오른쪽 아래 `?` 버튼(고른 책 색)으로 포스트잇 안내를 다시 펼칠 수 있습니다.
 
 ---
 
@@ -79,6 +87,8 @@
 - **패럴랙스** — CSS `animation-timeline: scroll()` 사용, 지원하지 않는 브라우저는 JS로 대체
 - **책 따라오기** — 스크롤하는 동안 책 한 권이 섹션마다 정해진 자리로 옮겨 다님
 - **상태 기억** — 마지막으로 본 화면, 고른 색, 스크롤 위치, 예약 정보를 브라우저에 저장 (`localStorage`, `bb-` 접두사)
+- **포스트잇 탭** — 안내 포스트잇이 그 자리에서 줄어들며 레이어 옆 탭으로 이동 (Web Animations API)
+- **맨 위로** — 지금 앞에 있는 레이어 그대로 페이지 맨 위로 이동 (첫 화면으로는 돌아가지 않음)
 - **모바일** — 상단 고정 바와 레이어 바로가기 점, 책 4권은 2×2 배치
 
 ---
@@ -86,7 +96,7 @@
 ## 기술
 
 - HTML / CSS / JavaScript (프레임워크·라이브러리 없음)
-- 폰트: Anton, Special Elite, Pinyon Script, Noto Serif KR, Inter Tight, Noto Sans KR (Google Fonts)
+- 폰트: Anton, Special Elite, Pinyon Script, Noto Serif KR, Inter Tight, Noto Sans KR (Google Fonts), 영월체 (눈누)
 - 질감: SVG `feTurbulence` 노이즈를 CSS에 직접 넣어 이미지 파일 없이 종이 질감 구현
 - 배포: Vercel (GitHub `main` 브랜치에 올리면 자동 배포)
 
@@ -98,6 +108,8 @@ random-book/
 ├── style.css       # 디자인, 레이어, 애니메이션
 ├── js.js           # 스크롤 시퀀스, 레이어 전환, 예약
 ├── favicon.svg
+├── docs/
+│   └── wireframe.md      # 와이어프레임 안내 (Figma 링크, 그리드, 화면 목록)
 └── assets/
     ├── book-kraft.webp   # 책 4종 (포장 색별)
     ├── book-brick.webp
