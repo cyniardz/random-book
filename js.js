@@ -597,7 +597,7 @@ const snapState = { key: null };
 const backOut = t => { const s = 1.6; t = t - 1; return t * t * ((s + 1) * t + s) + 1; };
 function snap(cls) { fly.classList.remove('land', 'snap'); void fly.offsetWidth; fly.classList.add(cls); }
 const wrapCredit = $('.sheet-orange .credit'), wrapSteps = $('.sheet-orange .steps');
-const landMeta = $('.land-meta'), noteCard = $('#noteCard'), afterGap = $('#afterGap'), agBar = $('#agBar'), visitEl = $('#visit');
+const creditCard = $('.sc-credit .clip-card'), landMeta = $('.land-meta'),noteCard = $('#noteCard'), afterGap = $('#afterGap'), agBar = $('#agBar'), visitEl = $('#visit');
 function drawLayers(dt) {
   sp = scrollY;
 
@@ -634,6 +634,15 @@ function drawLayers(dt) {
   fly.style.transform = `translate3d(${(x - wB / 2).toFixed(1)}px,${(y - hB * .471).toFixed(1)}px,0)`;
   const kk = Math.min(k, pts.length - 1), sNow = pts[kk] - sp, attached = sNow <= C + .5 && sNow > C - holds[kk];
   const near = attached ? 1 : 1 - smooth(clamp((sNow - C) / (V * .25)));
+  // 크레딧 메모지 뒤로 지나가기: 책은 화면 고정 요소라 순서로는 뒤로 못 보냄 → 메모지와 겹치는 위/아래 부분을 잘라냄
+  // (메모지가 책 너비를 다 덮을 때만 = 휴대폰. 넓은 화면은 책이 메모지 옆이라 해당 없음. -60px = 그림자 여유)
+  const fT = y - hB * .471, fB = fT + hB, cc = creditCard.getBoundingClientRect();
+  let cutT = 0, cutB = 0;
+  if (cc.left <= x - wB / 2 && cc.right >= x + wB / 2 && cc.bottom > fT && cc.top < fB) {
+    if (cc.top <= fT) cutT = Math.min(hB, cc.bottom - fT);
+    if (cc.bottom >= fB) cutB = Math.min(hB, fB - cc.top);
+  }
+  fly.style.clipPath = cutT || cutB ? `inset(${cutT ? cutT.toFixed(1) : -60}px -60px ${cutB ? cutB.toFixed(1) : -60}px -60px)` : '';
   fly.style.filter = `drop-shadow(${(18 - 12 * near).toFixed(1)}px ${(30 - 20 * near).toFixed(1)}px ${(28 - 18 * near).toFixed(1)}px rgba(30,20,10,${(.3 + .1 * near).toFixed(2)}))`;
   const hitKey = attached ? k : -1;
   if (hitKey !== snapState.key) { if (hitKey >= 0 && snapState.key !== null) snap('land'); snapState.key = hitKey; }
